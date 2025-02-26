@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Fact-Check Extension</title>
+  <style>
+    /* Basic styling */
+    body { font-family: Arial, sans-serif; width: 300px; padding: 10px; }
+    #result { margin-top: 10px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+    /* Color placeholders – these could be dynamically set */
+    .high { background-color: #d4edda; }
+    .moderate { background-color: #fff3cd; }
+    .low { background-color: #f8d7da; }
+  </style>
+</head>
+<body>
+  <h2>Fact-Check Extension</h2>
+  <textarea id="factText" rows="4" placeholder="Enter text to fact-check"></textarea>
+  <br>
+  <label>
+    <input type="checkbox" id="deepCheck">
+    Deep Fact-check (with external search)
+  </label>
+  <br>
+  <button id="checkBtn">Fact Check</button>
+  <div id="result"></div>
+  <script src="popup.js"></script>
+</body>
+</html>
