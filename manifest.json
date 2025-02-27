@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Fact-Check Extension",
   "version": "1.1",
-  "description": "Highlight text or fact-check entire articles using your OpenAI API key. Fact icons created by Freepik - Flaticons.",
+  "description": "Highlight text and fact-check it using web search context.",
   "permissions": [
     "contextMenus",
     "storage",
@@ -27,7 +27,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"]
+      "js": ["libs/Readability.js", "content.js"]
     }
   ]
 }
