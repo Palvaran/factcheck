@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Fact-Check Extension",
-  "version": "1.1",
-  "description": "Highlight text and fact-check it using web search context.",
+  "name": "Advanced Fact-Check Extension",
+  "version": "2.0",
+  "description": "Fact-check any text or article using AI and web search for verification.",
   "permissions": [
     "contextMenus",
     "storage",
@@ -10,15 +10,16 @@
     "scripting"
   ],
   "action": {
-    "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon32.png",
       "128": "icons/icon128.png"
-    }
+    },
+    "default_title": "Fact-Check This Page"
   },
   "host_permissions": [
-    "https://api.search.brave.com/*"
+    "https://api.search.brave.com/*",
+    "https://api.openai.com/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -29,5 +30,16 @@
       "matches": ["<all_urls>"],
       "js": ["libs/Readability.js", "content.js"]
     }
-  ]
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/*"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon32.png",
+    "128": "icons/icon128.png"
+  }
 }
