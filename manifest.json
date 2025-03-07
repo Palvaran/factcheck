@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Advanced Fact-Check Extension",
-  "version": "2.0",
+  "version": "2.2",
   "description": "Fact-check any text or article using AI and web search for verification.",
   "permissions": [
     "contextMenus",
@@ -22,21 +22,22 @@
     "https://api.openai.com/*"
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
-  "options_page": "options.html",
+  "options_page": "options/options.html",
   "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["libs/Readability.js", "content.js"]
-    }
-  ],
+  {
+    "matches": ["<all_urls>"],
+    "js": ["content-loader.js"]
+  }
+],
   "web_accessible_resources": [
-    {
-      "resources": ["icons/*"],
-      "matches": ["<all_urls>"]
-    }
-  ],
+  {
+    "resources": ["content.js", "utils/*", "services/*", "ui/*", "api/*", "libs/*", "icons/*"],
+    "matches": ["<all_urls>"]
+  }
+],
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon32.png",
