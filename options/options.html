@@ -58,6 +58,56 @@
       color: #666;
       font-size: 0.85em;
     }
+    /* Tooltip styling */
+    .tooltip-container {
+      position: relative;
+      display: inline-block;
+      margin-left: 5px;
+    }
+    .tooltip-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      background-color: #1976D2;
+      color: white;
+      border-radius: 50%;
+      font-size: 11px;
+      cursor: help;
+    }
+    .tooltip-text {
+      visibility: hidden;
+      width: 250px;
+      background-color: #555;
+      color: #fff;
+      text-align: left;
+      border-radius: 6px;
+      padding: 8px;
+      position: absolute;
+      z-index: 1;
+      bottom: 125%;
+      left: 50%;
+      margin-left: -125px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      font-size: 0.85em;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    .tooltip-text::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      margin-left: -5px;
+      border-width: 5px;
+      border-style: solid;
+      border-color: #555 transparent transparent transparent;
+    }
+    .tooltip-container:hover .tooltip-text {
+      visibility: visible;
+      opacity: 1;
+    }
     .success {
       color: green;
       margin-top: 10px;
@@ -95,9 +145,14 @@
     }
     .tab-content {
       display: none;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.3s, transform 0.3s;
     }
     .tab-content.active {
       display: block;
+      opacity: 1;
+      transform: translateY(0);
     }
     .settings-group {
       margin-bottom: 20px;
@@ -155,6 +210,16 @@
     }
     .option-label {
       flex: 1;
+      position: relative;
+    }
+    .modified-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background-color: #FF9800;
+      border-radius: 50%;
+      margin-left: 5px;
+      vertical-align: super;
     }
     .cost-info {
       margin-top: 10px;
@@ -172,16 +237,79 @@
       margin-top: 5px;
       display: none;
     }
+    /* New styles for version info and donation button */
+    .header-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    .header-title {
+      flex: 1;
+    }
+    .donation-button {
+      display: inline-block;
+      padding: 8px 16px;
+      background-color: #FF5E5B;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      font-weight: bold;
+      transition: background-color 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .donation-button:hover {
+      background-color: #E54844;
+    }
+    .kofi-icon {
+      width: 20px;
+      height: 20px;
+    }
+    .footer {
+      margin-top: 30px;
+      border-top: 1px solid #ccc;
+      padding-top: 15px;
+      font-size: 0.85em;
+      color: #666;
+      display: flex;
+      justify-content: space-between;
+    }
+    .version-info {
+      display: flex;
+      gap: 20px;
+    }
   </style>
 </head>
 <body>
-  <h1>Fact-Check Extension Settings</h1>
+  <div class="header-container">
+    <div class="header-title">
+      <h1>Fact-Check Extension Settings</h1>
+    </div>
+  </div>
   
   <div class="tabs">
-    <div class="tab active" data-tab="api-keys">API Keys</div>
-    <div class="tab" data-tab="ai-settings">AI Settings</div>
-    <div class="tab" data-tab="preferences">UI Preferences</div>
-    <div class="tab" data-tab="analytics">Analytics</div>
+    <div class="tab active" data-tab="api-keys">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: middle;"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
+      API Keys
+    </div>
+    <div class="tab" data-tab="ai-settings">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: middle;"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+      AI Settings
+    </div>
+    <div class="tab" data-tab="preferences">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: middle;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="15" x2="15" y2="15"></line><line x1="9" y1="12" x2="15" y2="12"></line></svg>
+      UI Preferences
+    </div>
+    <div class="tab" data-tab="analytics">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: middle;"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+      Analytics
+    </div>
+    <div class="tab" data-tab="about">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: middle;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+      About
+    </div>
   </div>
   
   <div id="api-keys" class="tab-content active">
@@ -192,9 +320,12 @@
       <div>
         <label for="openaiApiKey">OpenAI API Key:</label>
         <div style="position: relative; margin-top: 5px;">
-          <input type="password" id="openaiApiKey" placeholder="sk-..." style="width: 100%; padding: 8px; box-sizing: border-box; padding-right: 55px;">
-          <button type="button" class="toggle-visibility" data-for="openaiApiKey" style="position: absolute; right: 5px; top: 5px; background: #1976D2; color: white; border: none; border-radius: 3px; padding: 4px 8px; font-size: 12px; cursor: pointer; font-weight: bold;">
+          <input type="password" id="openaiApiKey" placeholder="sk-..." style="width: 100%; padding: 8px; box-sizing: border-box; padding-right: 110px;">
+          <button type="button" class="toggle-visibility" data-for="openaiApiKey" style="position: absolute; right: 55px; top: 5px; background: #1976D2; color: white; border: none; border-radius: 3px; padding: 4px 8px; font-size: 12px; cursor: pointer; font-weight: bold;">
             SHOW
+          </button>
+          <button type="button" id="testOpenAI" style="position: absolute; right: 5px; top: 5px; background: #4CAF50; color: white; border: none; border-radius: 3px; padding: 4px 8px; font-size: 12px; cursor: pointer; font-weight: bold;">
+            TEST
           </button>
         </div>
         <div class="note">Required for the AI-powered fact-checking. Get your API key from <a href="https://platform.openai.com/account/api-keys" target="_blank">OpenAI's website</a>.</div>
@@ -207,9 +338,12 @@
       <div>
         <label for="braveApiKey">Brave Search API Key:</label>
         <div style="position: relative; margin-top: 5px;">
-          <input type="password" id="braveApiKey" placeholder="BSA-..." style="width: 100%; padding: 8px; box-sizing: border-box; padding-right: 55px;">
-          <button type="button" class="toggle-visibility" data-for="braveApiKey" style="position: absolute; right: 5px; top: 5px; background: #1976D2; color: white; border: none; border-radius: 3px; padding: 4px 8px; font-size: 12px; cursor: pointer; font-weight: bold;">
+          <input type="password" id="braveApiKey" placeholder="BSA-..." style="width: 100%; padding: 8px; box-sizing: border-box; padding-right: 110px;">
+          <button type="button" class="toggle-visibility" data-for="braveApiKey" style="position: absolute; right: 55px; top: 5px; background: #1976D2; color: white; border: none; border-radius: 3px; padding: 4px 8px; font-size: 12px; cursor: pointer; font-weight: bold;">
             SHOW
+          </button>
+          <button type="button" id="testBrave" style="position: absolute; right: 5px; top: 5px; background: #4CAF50; color: white; border: none; border-radius: 3px; padding: 4px 8px; font-size: 12px; cursor: pointer; font-weight: bold;">
+            TEST
           </button>
         </div>
         <div class="note">Significantly improves fact-checking accuracy by providing web search context. Get your API key from <a href="https://brave.com/search/api/" target="_blank">Brave Search</a>.</div>
@@ -274,7 +408,12 @@
       <h2>API Usage Management</h2>
       
       <div class="option-row">
-        <span class="option-label">Enable caching of results:</span>
+        <span class="option-label">Enable caching of results:
+          <span class="tooltip-container">
+            <span class="tooltip-icon">?</span>
+            <span class="tooltip-text">Stores fact-check results locally to avoid duplicate API calls for identical text. This significantly reduces costs and improves response time when checking the same content multiple times.</span>
+          </span>
+        </span>
         <label class="toggle-switch">
           <input type="checkbox" id="enableCaching" checked>
           <span class="slider"></span>
@@ -334,7 +473,12 @@
       <h2>Behavior Settings</h2>
       
       <div class="option-row">
-        <span class="option-label">Automatically check headlines on news sites:</span>
+        <span class="option-label">Automatically check headlines on news sites:
+          <span class="tooltip-container">
+            <span class="tooltip-icon">?</span>
+            <span class="tooltip-text">When enabled, the extension will automatically detect and fact-check headlines on popular news websites without requiring manual selection.</span>
+          </span>
+        </span>
         <label class="toggle-switch">
           <input type="checkbox" id="autoCheckHeadlines">
           <span class="slider"></span>
@@ -343,13 +487,32 @@
       <div class="note">Automatically fact-checks headlines on common news websites.</div>
       
       <div class="option-row">
-        <span class="option-label">Show references with results:</span>
+        <span class="option-label">Show references with results:
+          <span class="tooltip-container">
+            <span class="tooltip-icon">?</span>
+            <span class="tooltip-text">Displays the sources and reference links used by the AI to verify claims. These can be clicked to view the original sources.</span>
+          </span>
+        </span>
         <label class="toggle-switch">
           <input type="checkbox" id="showReferences" checked>
           <span class="slider"></span>
         </label>
       </div>
       <div class="note">Displays sources and references used to verify claims.</div>
+    </div>
+    
+    <div class="card">
+      <h2>Site Management</h2>
+      
+      <div class="settings-group">
+        <label for="siteList">Auto-check these sites (one domain per line):</label>
+        <textarea id="siteList" style="width: 100%; height: 100px; margin-top: 5px; padding: 8px; border-radius: 4px; border: 1px solid #ccc;" placeholder="e.g.&#10;example.com&#10;news.example.org"></textarea>
+      </div>
+      
+      <div class="settings-group">
+        <label for="ignoredSites">Ignore these sites (one domain per line):</label>
+        <textarea id="ignoredSites" style="width: 100%; height: 100px; margin-top: 5px; padding: 8px; border-radius: 4px; border: 1px solid #ccc;" placeholder="e.g.&#10;trusted-source.com&#10;academic.edu"></textarea>
+      </div>
     </div>
   </div>
   
@@ -360,6 +523,14 @@
       <h2>Usage Statistics</h2>
       <div id="statsContainer">
         <p>Loading usage statistics...</p>
+      </div>
+      
+      <div style="margin-top: 20px;">
+        <h3>User Satisfaction</h3>
+        <div id="satisfactionChart" style="width: 100%; height: 150px; background-color: #f5f5f5; border-radius: 4px; position: relative;">
+          <!-- Chart will be rendered here -->
+          <div style="text-align: center; padding-top: 60px; color: #666;">Loading chart data...</div>
+        </div>
       </div>
     </div>
     
@@ -378,10 +549,102 @@
       <button id="clearData" style="background-color: #f44336;">Clear All Stored Data</button>
       <div class="note">This will delete all locally stored usage data and preferences (except API keys).</div>
     </div>
+    
+    <div class="card">
+      <h2>Debug Tools</h2>
+      <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+        <button id="testAPIIntegration" style="background-color: #673AB7;">Test API Integration</button>
+        <button id="viewDebugInfo" style="background-color: #FF9800;">View Debug Info</button>
+      </div>
+      
+      <div id="debugOutput" style="display: none; background-color: #f5f5f5; padding: 10px; border-radius: 4px; max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 12px; white-space: pre-wrap; margin-top: 10px;">
+        Debug information will appear here.
+      </div>
+    </div>
   </div>
   
-  <button id="save">Save Settings</button>
+  <!-- New About tab content -->
+  <div id="about" class="tab-content">
+    <p>Information about this extension and how to support its development.</p>
+    
+    <div class="card">
+      <h2>About This Extension</h2>
+      <p>Fact-Check is a browser extension that uses AI to help you verify the accuracy of information you encounter online.</p>
+      
+      <div style="margin-top: 20px;">
+        <strong>How It Works:</strong>
+        <ul>
+          <li>Select any text on a webpage to fact check it</li>
+          <li>The extension analyzes the text using OpenAI's advanced models</li>
+          <li>Results are presented with references and confidence levels</li>
+          <li>All processing happens through your own API keys for privacy</li>
+        </ul>
+      </div>
+      
+      <div style="margin-top: 15px;">
+        <p>If you find this extension useful, please consider supporting its development:</p>
+        <div style="text-align: center; margin: 20px 0;">
+          <a href="https://ko-fi.com/palvaran" target="_blank" class="donation-button" style="display: inline-flex;">
+            <img src="https://storage.ko-fi.com/cdn/cup-border.png" alt="Ko-fi cup" class="kofi-icon">
+            Support this project
+          </a>
+        </div>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h2>What's New</h2>
+      <div style="margin-bottom: 15px;">
+        <strong>Version 1.0.0 (March 7, 2025)</strong>
+        <ul style="margin-top: 5px;">
+          <li>Initial release of the Fact-Check Extension</li>
+          <li>Support for GPT-3.5 Turbo and GPT-4o Mini models</li>
+          <li>Integration with Brave Search for improved context</li>
+          <li>Enhanced UI with customizable result positioning</li>
+        </ul>
+      </div>
+      
+      <div>
+        <strong>Version 0.9.0 (February 15, 2025)</strong>
+        <ul style="margin-top: 5px;">
+          <li>Beta testing release</li>
+          <li>Basic fact-checking functionality</li>
+          <li>Settings UI implementation</li>
+        </ul>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h2>Feedback & Support</h2>
+      <p>If you have any suggestions, bug reports, or questions:</p>
+      <ul>
+        <li>Submit issues on our <a href="https://github.com/Palvaran" target="_blank">GitHub repository</a></li>
+        <li>Email us at <a href="mailto:palvaran@ideasquantified.com">palvaran@ideasquantified.com</a></li>
+        <li>Visit our website at <a href="https://ideasquantified.com" target="_blank">IdeasQuantified.com</a></li>
+      </ul>
+    </div>
+  </div>
+  
+  <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+    <button id="save">Save Settings</button>
+    <button id="reset" style="background-color: #757575;">Reset to Defaults</button>
+    <button id="exportSettings" style="background-color: #4CAF50;">Export Settings</button>
+    <button id="importSettings" style="background-color: #FF9800;">Import Settings</button>
+    <input type="file" id="importFile" style="display: none;" accept=".json">
+  </div>
   <div id="status" class="success">Settings saved successfully!</div>
+  
+  <!-- New footer with version information -->
+  <div class="footer">
+    <div class="version-info">
+      <span id="version">Version: 1.0.0</span>
+      <span id="buildDate">Build date: March 7, 2025</span>
+    </div>
+    <div>
+      <a href="https://github.com/Palvaran" target="_blank">GitHub</a> | 
+      <a href="https://ideasquantified.com" target="_blank">IdeasQuantified.com</a>
+    </div>
+  </div>
   
   <script src="options.js"></script>
 </body>

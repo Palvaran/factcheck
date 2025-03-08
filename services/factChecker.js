@@ -1,10 +1,10 @@
-// services/factChecker.js
+// services/factChecker.js - Updated with better debugging
 import { OpenAIService } from '../api/openai.js';
 import { BraveSearchService } from '../api/brave.js';
 import { CONTENT, DOMAINS } from '../utils/constants.js';
 
-// Global debug flag - set to false for production
-const DEBUG = false;
+// Global debug flag - set to true for debugging
+const DEBUG = true;
 
 // Debug logging helper
 function debugLog(...args) {
@@ -21,9 +21,39 @@ export class FactCheckerService {
       rateLimit: settings.rateLimit || 5
     });
     
+    debugLog("OpenAI API key present:", !!openaiApiKey);
+    debugLog("Brave API key present:", !!braveApiKey);
+    
+    // Print the first and last 3 characters of the API keys for debugging
+    if (openaiApiKey) {
+      const firstChars = openaiApiKey.substring(0, 3);
+      const lastChars = openaiApiKey.substring(openaiApiKey.length - 3);
+      debugLog(`OpenAI key format: ${firstChars}...${lastChars}`);
+    }
+    
+    if (braveApiKey) {
+      const firstChars = braveApiKey.substring(0, 3);
+      const lastChars = braveApiKey.substring(braveApiKey.length - 3);
+      debugLog(`Brave key format: ${firstChars}...${lastChars}`);
+    }
+    
     this.openaiService = new OpenAIService(openaiApiKey);
     this.braveService = braveApiKey ? new BraveSearchService(braveApiKey) : null;
     debugLog("BraveSearchService available:", !!this.braveService);
+    
+    // Immediately test the Brave API if available
+    if (this.braveService) {
+      debugLog("Testing Brave API during initialization");
+      
+      // Run a quick test query
+      this.braveService.enqueueSearch("test query")
+        .then(results => {
+          debugLog(`✓ Brave API test successful, got ${results.length} results`);
+        })
+        .catch(error => {
+          console.error("✗ Brave API test failed during initialization:", error);
+        });
+    }
     
     // Set defaults if settings are missing
     this.settings = {
@@ -96,19 +126,46 @@ export class FactCheckerService {
       const queryText = await this.openaiService.extractSearchQuery(text, this.settings.aiModel);
       debugLog("Query extracted, length:", queryText.length);
       
+      // Verify if Brave service is available
+      if (!this.braveService) {
+        debugLog("WARNING: Brave service is null. API key might be missing or invalid.");
+        
+        // Attempt emergency reinitialization
+        try {
+          // Retrieve the API key from storage again
+          chrome.storage.sync.get(['braveApiKey'], (result) => {
+            if (result.braveApiKey) {
+              debugLog("Found Brave API key in storage, attempting to reinitialize service");
+              this.braveService = new BraveSearchService(result.braveApiKey);
+            } else {
+              debugLog("No Brave API key found in storage");
+            }
+          });
+        } catch (storageError) {
+          console.error("Error accessing storage:", storageError);
+        }
+      }
+      
       // Collect all potential operations and run in parallel where possible
       const operations = [];
       
       // Only add the search operation if we have a Brave service
       if (this.braveService) {
+        debugLog("Adding Brave search operation");
         operations.push(
           this.braveService.search(queryText)
             .then(result => ({ type: 'search', data: result }))
-            .catch(error => ({ type: 'search', error }))
+            .catch(error => {
+              console.error("Error in Brave search operation:", error);
+              return { type: 'search', error };
+            })
         );
+      } else {
+        debugLog("Skipping Brave search operation - service not available");
       }
       
       // Execute all operations in parallel
+      debugLog(`Executing ${operations.length} operations in parallel`);
       const results = await Promise.all(operations);
       
       // Extract results from the operations
@@ -122,6 +179,7 @@ export class FactCheckerService {
         debugLog("Search context acquired, length:", searchContext.length);
       } else if (searchResult?.error) {
         console.error("Error with search:", searchResult.error);
+        referencesHTML = `<br><br><strong>References:</strong><br>Error fetching references: ${searchResult.error.message}`;
       }
       
       // Determine which model to use based on settings
@@ -161,9 +219,11 @@ export class FactCheckerService {
       
       // Attempt emergency fallback
       try {
+        debugLog("Attempting emergency fallback...");
         const emergencyResult = await this.emergencyFallback(text);
         return emergencyResult;
       } catch (fallbackError) {
+        console.error("Even fallback failed:", fallbackError);
         // If even the fallback fails, return the original error
         return { 
           result: `Error: ${error.message} - Please try again later or check your API keys.`, 

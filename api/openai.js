@@ -1,4 +1,4 @@
-// api/openai.js
+// api/openai.js - Fixed to convert maxTokens to integer
 import { RequestQueueManager } from '../utils/requestQueue.js';
 import { REQUEST, API, CACHE, CONTENT } from '../utils/constants.js';
 
@@ -64,10 +64,16 @@ export class OpenAIService {
   async _processRequest(requestData) {
     const { prompt, model, maxTokens } = requestData;
     
+    // FIX: Convert maxTokens to integer
+    const maxTokensInt = parseInt(maxTokens, 10);
+    
+    // Log for debugging
+    console.log(`Making OpenAI API request with model: ${model}, max_tokens: ${maxTokensInt}`);
+    
     const requestBody = {
       model: model,
       messages: [{ role: "user", content: prompt }],
-      max_tokens: maxTokens,
+      max_tokens: maxTokensInt, // Now passing as integer
       temperature: 0.3
     };
     
@@ -107,7 +113,11 @@ export class OpenAIService {
     }
     
     // Process the request
-    const result = await this.requestQueue.enqueueRequest({ prompt, model, maxTokens });
+    const result = await this.requestQueue.enqueueRequest({ 
+      prompt, 
+      model, 
+      maxTokens: parseInt(maxTokens, 10) // Ensure maxTokens is an integer here too
+    });
     
     // Store in cache with timestamp if caching is enabled
     if (enableCaching) {
