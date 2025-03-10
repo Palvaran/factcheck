@@ -124,7 +124,7 @@ export class FactCheckerService {
       // Extract query for search context
       debugLog("Extracting search query...");
       const queryText = await this.openaiService.extractSearchQuery(text, this.settings.aiModel);
-      debugLog("Query extracted, length:", queryText.length);
+      debugLog("Query extracted, length:", queryText.length);  
       
       // Verify if Brave service is available
       if (!this.braveService) {
@@ -209,11 +209,26 @@ export class FactCheckerService {
       }
       
       debugLog("Fact check completed successfully");
+
+      // Extract rating from the factCheckResult
+      let rating = null;
+      const ratingMatch = factCheckResult.match(/Rating:\s*(\d+)/i);
+      if (ratingMatch && ratingMatch[1]) {
+        rating = parseInt(ratingMatch[1], 10);
+        debugLog(`Extracted rating: ${rating}`);
+      } else {
+        debugLog("No rating found in fact check result");
+      }
       
       // Combine results and references
       const combinedResult = factCheckResult + referencesHTML;
       
-      return { result: combinedResult, queryText };
+      // IMPORTANT: Return all three values in a consistent object
+      return { 
+        result: combinedResult, 
+        queryText, 
+        rating // Make sure this is included
+      };
     } catch (error) {
       console.error("Critical error in factCheck:", error);
       
@@ -221,13 +236,14 @@ export class FactCheckerService {
       try {
         debugLog("Attempting emergency fallback...");
         const emergencyResult = await this.emergencyFallback(text);
-        return emergencyResult;
+        return emergencyResult; // This should already be returning { result, queryText, rating }
       } catch (fallbackError) {
         console.error("Even fallback failed:", fallbackError);
         // If even the fallback fails, return the original error
         return { 
           result: `Error: ${error.message} - Please try again later or check your API keys.`, 
-          queryText: text.substring(0, 100) 
+          queryText: text.substring(0, 100),
+          rating: null // Include null rating
         };
       }
     }
@@ -445,7 +461,9 @@ FORMAT YOUR RESPONSE WITH THESE HEADERS:
         Please fact-check the following statement and rate its accuracy from 0-100:
         "${text.substring(0, 1000)}"
         
-        Rating and brief explanation only.
+        Format your response with:
+        "Rating: [numerical score]"
+        "Explanation: [your brief explanation]"
       `;
       
       const simpleResult = await this.openaiService.callWithCache(
@@ -456,9 +474,19 @@ FORMAT YOUR RESPONSE WITH THESE HEADERS:
       );
       
       debugLog("Emergency fallback succeeded");
+      
+      // Extract rating from the simpleResult
+      let rating = null;
+      const ratingMatch = simpleResult.match(/Rating:\s*(\d+)/i);
+      if (ratingMatch && ratingMatch[1]) {
+        rating = parseInt(ratingMatch[1], 10);
+        debugLog(`Extracted emergency rating: ${rating}`);
+      }
+      
       return { 
         result: simpleResult + "<br><br><strong>References:</strong><br>No references available (emergency mode).", 
-        queryText: text.substring(0, 100) 
+        queryText: text.substring(0, 100),
+        rating: rating
       };
     } catch (finalError) {
       console.error("Final fallback error:", finalError);

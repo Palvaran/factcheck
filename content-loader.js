@@ -1,4 +1,4 @@
-// content-loader.js - Injects the module script
+// content-loader.js - Simplified approach that doesn't rely on script loading
 // Debug flag - set to false for production
 const DEBUG = false;
 
@@ -12,26 +12,39 @@ debugLog("Fact Check Extension loader initializing");
 // Store response handlers for later use
 window.__responseHandlers = {};
 
-// Add Readability library
-const readabilityScript = document.createElement('script');
-readabilityScript.src = chrome.runtime.getURL('libs/readability.js');
-document.head.appendChild(readabilityScript);
-
-// Add Marked library
-const markedScript = document.createElement('script');
-markedScript.src = chrome.runtime.getURL('libs/marked.min.js');
-document.head.appendChild(markedScript);
-
-// Add DOMPurify library
-const purifyScript = document.createElement('script');
-purifyScript.src = chrome.runtime.getURL('libs/purify.min.js');
-document.head.appendChild(purifyScript);
-
-// Create and inject the module script
-const script = document.createElement('script');
-script.src = chrome.runtime.getURL('content.js');
-script.type = 'module';
-document.head.appendChild(script);
+// First, check if we can inject Readability directly
+try {
+  chrome.runtime.sendMessage({ action: 'injectReadability' }, (response) => {
+    if (chrome.runtime.lastError) {
+      console.error("Error requesting Readability injection:", chrome.runtime.lastError);
+    }
+    
+    debugLog("Readability injection requested, continuing with other libraries");
+    
+    // Load the other libraries
+    const markedScript = document.createElement('script');
+    markedScript.src = chrome.runtime.getURL('libs/marked.min.js');
+    document.head.appendChild(markedScript);
+    
+    const purifyScript = document.createElement('script');
+    purifyScript.src = chrome.runtime.getURL('libs/purify.min.js');
+    document.head.appendChild(purifyScript);
+    
+    // Load content.js
+    const script = document.createElement('script');
+    script.src = chrome.runtime.getURL('content.js');
+    script.type = 'module';
+    document.head.appendChild(script);
+  });
+} catch (error) {
+  console.error("Error requesting Readability injection:", error);
+  
+  // Fall back to loading content.js directly
+  const script = document.createElement('script');
+  script.src = chrome.runtime.getURL('content.js');
+  script.type = 'module';
+  document.head.appendChild(script);
+}
 
 // Bridge for communication between extension context and page context
 window.addEventListener('FACT_CHECK_RESPONSE', (event) => {

@@ -123,9 +123,12 @@ export class TextExtractorService {
       author: this.extractAuthor()
     };
     
-    // Try Readability first if available
+    // Try Readability first if available - Use safer check
     try {
-      if (typeof Readability !== 'undefined') {
+      // Check if Readability exists on window object only
+      if (typeof window !== 'undefined' && window.Readability) {
+        console.log("Readability library found, using it for extraction");
+        
         // Clone the document to avoid modifying the live DOM
         let documentClone = document.cloneNode(true);
         
@@ -146,40 +149,49 @@ export class TextExtractorService {
           }
         });
         
-        let reader = new Readability(documentClone, {
-          // Readability options for better extraction
-          debug: false,
-          charThreshold: 100, // Lower threshold to extract more content
-          classesToPreserve: ['caption', 'figure', 'chart', 'table']
-        });
-        
-        let article = reader.parse();
-        if (article && article.textContent && article.textContent.trim().length > 200) {
-          articleText = article.textContent;
+        // Use window.Readability explicitly
+        try {
+          let reader = new window.Readability(documentClone, {
+            debug: false,
+            charThreshold: 100,
+            classesToPreserve: ['caption', 'figure', 'chart', 'table']
+          });
           
-          // Use article metadata if available
-          if (article.title) {
-            articleMetadata.title = article.title;
+          let article = reader.parse();
+          if (article && article.textContent && article.textContent.trim().length > 200) {
+            articleText = article.textContent;
+            
+            // Use article metadata if available
+            if (article.title) {
+              articleMetadata.title = article.title;
+            }
+            if (article.byline) {
+              articleMetadata.author = article.byline;
+            }
+            if (article.siteName) {
+              articleMetadata.siteName = article.siteName;
+            }
+            if (article.excerpt) {
+              articleMetadata.excerpt = article.excerpt;
+            }
+            
+            console.log("Successfully extracted article with Readability");
+          } else {
+            console.log("Readability parse returned insufficient content");
           }
-          if (article.byline) {
-            articleMetadata.author = article.byline;
-          }
-          if (article.siteName) {
-            articleMetadata.siteName = article.siteName;
-          }
-          if (article.excerpt) {
-            articleMetadata.excerpt = article.excerpt;
-          }
+        } catch (readerError) {
+          console.error("Error using Readability reader:", readerError);
         }
       } else {
         console.log("Readability library not available, using fallback extraction");
       }
     } catch (err) {
-      console.error("Error using Readability:", err);
+      console.error("Error checking for Readability:", err);
     }
     
     // Fallback to intelligent DOM selection if needed
     if (!articleText || articleText.trim().length < 200) {
+      console.log("Using fallback extraction method");
       // Find the most likely content element based on content density
       const contentSelectors = [
         'article',

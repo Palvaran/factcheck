@@ -2,317 +2,44 @@
 <html>
 <head>
   <title>Fact-Check Extension Options</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-      max-width: 700px;
-      line-height: 1.5;
-      color: #333;
-    }
-    h1 {
-      color: #1565C0;
-      border-bottom: 1px solid #ccc;
-      padding-bottom: 10px;
-    }
-    h2 {
-      color: #1976D2;
-      margin-top: 20px;
-    }
-    label {
-      display: block;
-      margin-top: 15px;
-      font-weight: bold;
-    }
-    input[type="text"] {
-      width: 100%;
-      padding: 8px;
-      margin-top: 5px;
-      box-sizing: border-box;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
-    select {
-      width: 100%;
-      padding: 8px;
-      margin-top: 5px;
-      box-sizing: border-box;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
-    button {
-      margin-top: 20px;
-      padding: 8px 16px;
-      background-color: #4285f4;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
-    button:hover {
-      background-color: #3367d6;
-    }
-    .note {
-      margin-top: 5px;
-      color: #666;
-      font-size: 0.85em;
-    }
-    /* Tooltip styling */
-    .tooltip-container {
-      position: relative;
-      display: inline-block;
-      margin-left: 5px;
-    }
-    .tooltip-icon {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 16px;
-      height: 16px;
-      background-color: #1976D2;
-      color: white;
-      border-radius: 50%;
-      font-size: 11px;
-      cursor: help;
-    }
-    .tooltip-text {
-      visibility: hidden;
-      width: 250px;
-      background-color: #555;
-      color: #fff;
-      text-align: left;
-      border-radius: 6px;
-      padding: 8px;
-      position: absolute;
-      z-index: 1;
-      bottom: 125%;
-      left: 50%;
-      margin-left: -125px;
-      opacity: 0;
-      transition: opacity 0.3s;
-      font-size: 0.85em;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    }
-    .tooltip-text::after {
-      content: "";
-      position: absolute;
-      top: 100%;
-      left: 50%;
-      margin-left: -5px;
-      border-width: 5px;
-      border-style: solid;
-      border-color: #555 transparent transparent transparent;
-    }
-    .tooltip-container:hover .tooltip-text {
-      visibility: visible;
-      opacity: 1;
-    }
-    .success {
-      color: green;
-      margin-top: 10px;
-      display: none;
-      padding: 8px;
-      background-color: #E8F5E9;
-      border-radius: 4px;
-    }
-    .card {
-      background-color: #f9f9f9;
-      border-radius: 8px;
-      padding: 15px;
-      margin: 20px 0;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .tabs {
-      display: flex;
-      margin-bottom: 20px;
-      border-bottom: 1px solid #ccc;
-    }
-    .tab {
-      padding: 10px 15px;
-      cursor: pointer;
-      background-color: #f5f5f5;
-      border: 1px solid #ccc;
-      border-bottom: none;
-      border-radius: 4px 4px 0 0;
-      margin-right: 5px;
-    }
-    .tab.active {
-      background-color: white;
-      border-bottom-color: white;
-      font-weight: bold;
-      color: #1565C0;
-    }
-    .tab-content {
-      display: none;
-      opacity: 0;
-      transform: translateY(10px);
-      transition: opacity 0.3s, transform 0.3s;
-    }
-    .tab-content.active {
-      display: block;
-      opacity: 1;
-      transform: translateY(0);
-    }
-    .settings-group {
-      margin-bottom: 20px;
-    }
-    .analytics-card {
-      background-color: #E3F2FD;
-      border-radius: 8px;
-      padding: 15px;
-      margin: 20px 0;
-    }
-    .toggle-switch {
-      position: relative;
-      display: inline-block;
-      width: 50px;
-      height: 24px;
-      margin-left: 10px;
-    }
-    .toggle-switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-    .slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-color: #ccc;
-      transition: .4s;
-      border-radius: 24px;
-    }
-    .slider:before {
-      position: absolute;
-      content: "";
-      height: 16px;
-      width: 16px;
-      left: 4px;
-      bottom: 4px;
-      background-color: white;
-      transition: .4s;
-      border-radius: 50%;
-    }
-    input:checked + .slider {
-      background-color: #2196F3;
-    }
-    input:checked + .slider:before {
-      transform: translateX(26px);
-    }
-    .option-row {
-      display: flex;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-    .option-label {
-      flex: 1;
-      position: relative;
-    }
-    .modified-indicator {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      background-color: #FF9800;
-      border-radius: 50%;
-      margin-left: 5px;
-      vertical-align: super;
-    }
-    .cost-info {
-      margin-top: 10px;
-      padding: 10px;
-      background-color: #f0f0f0;
-      border-radius: 4px;
-      font-size: 12px;
-      color: #666;
-    }
-    .error {
-      color: #d32f2f;
-      background-color: #ffebee;
-      padding: 8px;
-      border-radius: 4px;
-      margin-top: 5px;
-      display: none;
-    }
-    /* New styles for version info and donation button */
-    .header-container {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 15px;
-    }
-    .header-title {
-      flex: 1;
-    }
-    .donation-button {
-      display: inline-block;
-      padding: 8px 16px;
-      background-color: #FF5E5B;
-      color: white;
-      text-decoration: none;
-      border-radius: 4px;
-      font-weight: bold;
-      transition: background-color 0.2s;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .donation-button:hover {
-      background-color: #E54844;
-    }
-    .kofi-icon {
-      width: 20px;
-      height: 20px;
-    }
-    .footer {
-      margin-top: 30px;
-      border-top: 1px solid #ccc;
-      padding-top: 15px;
-      font-size: 0.85em;
-      color: #666;
-      display: flex;
-      justify-content: space-between;
-    }
-    .version-info {
-      display: flex;
-      gap: 20px;
-    }
-  </style>
+  <link rel="stylesheet" href="css/options.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
+  <!-- Skip link for accessibility -->
+  <a id="skip-link" href="#main-content">Skip to main content</a>
+  
   <div class="header-container">
     <div class="header-title">
       <h1>Fact-Check Extension Settings</h1>
     </div>
   </div>
   
-  <div class="tabs">
-    <div class="tab active" data-tab="api-keys">
+  <div id="main-content" class="tabs" tabindex="-1">
+    <div class="tab active" data-tab="api-keys" id="tab-0" role="tab" tabindex="0" aria-selected="true">
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: middle;"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
       API Keys
     </div>
-    <div class="tab" data-tab="ai-settings">
+    <div class="tab" data-tab="ai-settings" id="tab-1" role="tab" tabindex="-1" aria-selected="false">
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: middle;"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
       AI Settings
     </div>
-    <div class="tab" data-tab="preferences">
+    <div class="tab" data-tab="preferences" id="tab-2" role="tab" tabindex="-1" aria-selected="false">
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: middle;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="15" x2="15" y2="15"></line><line x1="9" y1="12" x2="15" y2="12"></line></svg>
       UI Preferences
     </div>
-    <div class="tab" data-tab="analytics">
+    <div class="tab" data-tab="analytics" id="tab-3" role="tab" tabindex="-1" aria-selected="false">
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: middle;"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
       Analytics
     </div>
-    <div class="tab" data-tab="about">
+    <div class="tab" data-tab="about" id="tab-4" role="tab" tabindex="-1" aria-selected="false">
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: middle;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
       About
     </div>
   </div>
   
-  <div id="api-keys" class="tab-content active">
+  <div id="api-keys" class="tab-content active" role="tabpanel" aria-labelledby="tab-0" tabindex="0">
     <p>Configure your API keys to enable the fact-checking functionality.</p>
     
     <div class="card">
@@ -320,7 +47,7 @@
       <div>
         <label for="openaiApiKey">OpenAI API Key:</label>
         <div style="position: relative; margin-top: 5px;">
-          <input type="password" id="openaiApiKey" placeholder="sk-..." style="width: 100%; padding: 8px; box-sizing: border-box; padding-right: 110px;">
+          <input type="password" id="openaiApiKey" placeholder="sk-..." style="width: 100%; padding: 8px; box-sizing: border-box; padding-right: 110px;" aria-label="OpenAI API Key (masked for security)">
           <button type="button" class="toggle-visibility" data-for="openaiApiKey" style="position: absolute; right: 55px; top: 5px; background: #1976D2; color: white; border: none; border-radius: 3px; padding: 4px 8px; font-size: 12px; cursor: pointer; font-weight: bold;">
             SHOW
           </button>
@@ -328,7 +55,7 @@
             TEST
           </button>
         </div>
-        <div class="note">Required for the AI-powered fact-checking. Get your API key from <a href="https://platform.openai.com/account/api-keys" target="_blank">OpenAI's website</a>.</div>
+        <div class="note" id="openai-note">Required for the AI-powered fact-checking. Get your API key from <a href="https://platform.openai.com/account/api-keys" target="_blank">OpenAI's website</a>.</div>
         <div id="openai-error" class="error"></div>
       </div>
     </div>
@@ -338,7 +65,7 @@
       <div>
         <label for="braveApiKey">Brave Search API Key:</label>
         <div style="position: relative; margin-top: 5px;">
-          <input type="password" id="braveApiKey" placeholder="BSA-..." style="width: 100%; padding: 8px; box-sizing: border-box; padding-right: 110px;">
+          <input type="password" id="braveApiKey" placeholder="BSA-..." style="width: 100%; padding: 8px; box-sizing: border-box; padding-right: 110px;" aria-label="Brave API Key (masked for security)">
           <button type="button" class="toggle-visibility" data-for="braveApiKey" style="position: absolute; right: 55px; top: 5px; background: #1976D2; color: white; border: none; border-radius: 3px; padding: 4px 8px; font-size: 12px; cursor: pointer; font-weight: bold;">
             SHOW
           </button>
@@ -346,27 +73,32 @@
             TEST
           </button>
         </div>
-        <div class="note">Significantly improves fact-checking accuracy by providing web search context. Get your API key from <a href="https://brave.com/search/api/" target="_blank">Brave Search</a>.</div>
+        <div class="note" id="brave-note">Significantly improves fact-checking accuracy by providing web search context. Get your API key from <a href="https://brave.com/search/api/" target="_blank">Brave Search</a>.</div>
         <div id="brave-error" class="error"></div>
       </div>
     </div>
   </div>
   
-  <div id="ai-settings" class="tab-content">
+  <div id="ai-settings" class="tab-content" role="tabpanel" aria-labelledby="tab-1" tabindex="0">
     <p>Configure AI models and optimize performance and cost.</p>
     
     <div class="card">
       <h2>AI Model Settings</h2>
       
       <div class="option-row">
-        <span class="option-label">Select AI Model:</span>
-        <select id="aiModel" style="margin-left:10px; width:300px; padding:5px; border-radius:3px;">
+        <span class="option-label">Select AI Model:
+          <span class="tooltip-container">
+            <span class="tooltip-icon">?</span>
+            <span class="tooltip-text">Choose which AI model to use for fact-checking. More powerful models generally provide better accuracy but may cost more.</span>
+          </span>
+        </span>
+        <select id="aiModel" style="margin-left:10px; width:300px; padding:5px; border-radius:3px;" aria-label="Select AI Model">
           <option value="gpt-3.5-turbo">Legacy (GPT-3.5 Turbo)</option>
           <option value="gpt-4o-mini" selected>Standard (GPT-4o Mini) - Higher Accuracy</option>
           <option value="hybrid">Hybrid - Use 3.5 for search, 4o for analysis</option>
         </select>        
       </div>
-      <div class="note">Balance speed, cost, and accuracy based on your needs. Premium is recommended for most users.</div>
+      <div class="note" id="model-note">Balance speed, cost, and accuracy based on your needs. Premium is recommended for most users.</div>
       
       <div class="cost-info">
         <strong>Estimated cost per 1000 fact checks (approx.):</strong><br>
@@ -381,26 +113,36 @@
       
       <div class="settings-group" style="margin-top:20px;">
         <div class="option-row">
-          <span class="option-label">Use multi-model verification:</span>
+          <span class="option-label">Use multi-model verification:
+            <span class="tooltip-container">
+              <span class="tooltip-icon">?</span>
+              <span class="tooltip-text">Runs your fact check through multiple AI models to compare results and increase accuracy. Uses approximately 2-3 times more API credits but provides more reliable verification.</span>
+            </span>
+          </span>
           <label class="toggle-switch">
-            <input type="checkbox" id="useMultiModel">
+            <input type="checkbox" id="useMultiModel" aria-label="Use multi-model verification">
             <span class="slider"></span>
           </label>
         </div>
-        <div class="note">Combines results from multiple analyses for better accuracy. May increase API usage and costs.</div>
+        <div class="note" id="multi-model-note">Combines results from multiple analyses for better accuracy. May increase API usage and costs.</div>
       </div>
       
       <div class="settings-group">
         <div class="option-row">
-          <span class="option-label">Maximum tokens per request:</span>
-          <select id="maxTokens" style="margin-left:10px; width:100px;">
+          <span class="option-label">Maximum tokens per request:
+            <span class="tooltip-container">
+              <span class="tooltip-icon">?</span>
+              <span class="tooltip-text">Controls the maximum length of AI-generated responses. Higher values allow for more detailed explanations and source citations but increase API costs. 500 tokens is roughly 375 words.</span>
+            </span>
+          </span>
+          <select id="maxTokens" style="margin-left:10px; width:100px;" aria-label="Maximum tokens per request">
             <option value="500">500</option>
             <option value="1000">1000</option>
             <option value="1500">1500</option>
             <option value="2000">2000</option>
           </select>
         </div>
-        <div class="note">Higher values allow longer responses but increase costs. 500 is usually sufficient.</div>
+        <div class="note" id="tokens-note">Higher values allow longer responses but increase costs. 500 is usually sufficient.</div>
       </div>
     </div>
     
@@ -415,35 +157,45 @@
           </span>
         </span>
         <label class="toggle-switch">
-          <input type="checkbox" id="enableCaching" checked>
+          <input type="checkbox" id="enableCaching" checked aria-label="Enable caching of results">
           <span class="slider"></span>
         </label>
       </div>
-      <div class="note">Saves API costs by reusing recent results for identical queries.</div>
+      <div class="note" id="caching-note">Saves API costs by reusing recent results for identical queries.</div>
       
       <div class="option-row">
-        <span class="option-label">Rate limit per minute:</span>
-        <select id="rateLimit" style="margin-left:10px; width:100px;">
+        <span class="option-label">Rate limit per minute:
+          <span class="tooltip-container">
+            <span class="tooltip-icon">?</span>
+            <span class="tooltip-text">Sets the maximum number of API requests that can be made per minute to prevent accidental overuse or unexpected costs.</span>
+          </span>
+        </span>
+        <select id="rateLimit" style="margin-left:10px; width:100px;" aria-label="Rate limit per minute">
           <option value="3">3</option>
           <option value="5">5</option>
           <option value="10">10</option>
           <option value="15">15</option>
         </select>
       </div>
-      <div class="note">Limits the number of API calls per minute to control costs.</div>
+      <div class="note" id="rate-limit-note">Limits the number of API calls per minute to control costs.</div>
     </div>
   </div>
   
-  <div id="preferences" class="tab-content">
+  <div id="preferences" class="tab-content" role="tabpanel" aria-labelledby="tab-2" tabindex="0">
     <p>Customize how the fact-checking extension works and looks.</p>
     
     <div class="card">
       <h2>UI Settings</h2>
       
       <div class="option-row">
-        <span class="option-label">Enhanced UI with rating visualization:</span>
+        <span class="option-label">Enhanced UI with rating visualization:
+          <span class="tooltip-container">
+            <span class="tooltip-icon">?</span>
+            <span class="tooltip-text">Shows a visual gauge for fact-check scores, making it easier to quickly understand the reliability of content.</span>
+          </span>
+        </span>
         <label class="toggle-switch">
-          <input type="checkbox" id="enhancedUI" checked>
+          <input type="checkbox" id="enhancedUI" checked aria-label="Enable enhanced UI with rating visualization">
           <span class="slider"></span>
         </label>
       </div>
@@ -451,7 +203,7 @@
       
       <div class="settings-group">
         <label for="resultPosition">Result Position:</label>
-        <select id="resultPosition" style="margin-top:5px; width:100%; padding:8px; border-radius:4px;">
+        <select id="resultPosition" style="margin-top:5px; width:100%; padding:8px; border-radius:4px;" aria-label="Select result position">
           <option value="right">Top Right Corner</option>
           <option value="left">Top Left Corner</option>
           <option value="bottom">Bottom of Screen</option>
@@ -461,7 +213,7 @@
       
       <div class="settings-group">
         <label for="colorTheme">Color Theme:</label>
-        <select id="colorTheme" style="margin-top:5px; width:100%; padding:8px; border-radius:4px;">
+        <select id="colorTheme" style="margin-top:5px; width:100%; padding:8px; border-radius:4px;" aria-label="Select color theme">
           <option value="auto">Auto (Match Website)</option>
           <option value="light">Light</option>
           <option value="dark">Dark</option>
@@ -480,7 +232,7 @@
           </span>
         </span>
         <label class="toggle-switch">
-          <input type="checkbox" id="autoCheckHeadlines">
+          <input type="checkbox" id="autoCheckHeadlines" aria-label="Automatically check headlines on news sites">
           <span class="slider"></span>
         </label>
       </div>
@@ -494,7 +246,7 @@
           </span>
         </span>
         <label class="toggle-switch">
-          <input type="checkbox" id="showReferences" checked>
+          <input type="checkbox" id="showReferences" checked aria-label="Show references with results">
           <span class="slider"></span>
         </label>
       </div>
@@ -506,17 +258,17 @@
       
       <div class="settings-group">
         <label for="siteList">Auto-check these sites (one domain per line):</label>
-        <textarea id="siteList" style="width: 100%; height: 100px; margin-top: 5px; padding: 8px; border-radius: 4px; border: 1px solid #ccc;" placeholder="e.g.&#10;example.com&#10;news.example.org"></textarea>
+        <textarea id="siteList" style="width: 100%; height: 100px; margin-top: 5px; padding: 8px; border-radius: 4px; border: 1px solid #ccc;" placeholder="e.g.&#10;example.com&#10;news.example.org" aria-label="Sites to auto-check"></textarea>
       </div>
       
       <div class="settings-group">
         <label for="ignoredSites">Ignore these sites (one domain per line):</label>
-        <textarea id="ignoredSites" style="width: 100%; height: 100px; margin-top: 5px; padding: 8px; border-radius: 4px; border: 1px solid #ccc;" placeholder="e.g.&#10;trusted-source.com&#10;academic.edu"></textarea>
+        <textarea id="ignoredSites" style="width: 100%; height: 100px; margin-top: 5px; padding: 8px; border-radius: 4px; border: 1px solid #ccc;" placeholder="e.g.&#10;trusted-source.com&#10;academic.edu" aria-label="Sites to ignore"></textarea>
       </div>
     </div>
   </div>
   
-  <div id="analytics" class="tab-content">
+  <div id="analytics" class="tab-content" role="tabpanel" aria-labelledby="tab-3" tabindex="0">
     <p>View usage statistics and manage your data.</p>
     
     <div class="analytics-card">
@@ -524,14 +276,23 @@
       <div id="statsContainer">
         <p>Loading usage statistics...</p>
       </div>
-      
-      <div style="margin-top: 20px;">
-        <h3>User Satisfaction</h3>
-        <div id="satisfactionChart" style="width: 100%; height: 150px; background-color: #f5f5f5; border-radius: 4px; position: relative;">
-          <!-- Chart will be rendered here -->
-          <div style="text-align: center; padding-top: 60px; color: #666;">Loading chart data...</div>
-        </div>
+    </div>
+    
+    <!-- API Usage Cost Estimation Card -->
+    <div class="card">
+      <h2>API Usage and Cost Estimate</h2>
+      <div id="costEstimateContainer">
+        <p>Loading cost estimates...</p>
       </div>
+    </div>
+    
+    <!-- Recent Fact Checks Card -->
+    <div class="card">
+      <h2>Recent Fact Checks</h2>
+      <div id="recentChecksContainer">
+        <p>Loading recent fact checks...</p>
+      </div>
+      <button id="clearRecentChecks" style="background-color: #f44336; margin-top: 10px;">Clear Recent Checks</button>
     </div>
     
     <div class="card">
@@ -540,7 +301,7 @@
       <div class="option-row">
         <span class="option-label">Share anonymous usage data to improve the extension:</span>
         <label class="toggle-switch">
-          <input type="checkbox" id="shareAnalytics" checked>
+          <input type="checkbox" id="shareAnalytics" checked aria-label="Share anonymous usage data">
           <span class="slider"></span>
         </label>
       </div>
@@ -557,14 +318,19 @@
         <button id="viewDebugInfo" style="background-color: #FF9800;">View Debug Info</button>
       </div>
       
+      <!-- Supabase Debug Buttons -->
+      <div id="supabase-buttons" style="display: flex; gap: 10px; margin-top: 15px;">
+        <button id="testSupabaseBtn" style="background-color: #3ECF8E;">Test Supabase Connection</button>
+        <button id="checkAnalyticsBtn" style="background-color: #9c27b0;">Check Analytics Status</button>
+      </div>
+      
       <div id="debugOutput" style="display: none; background-color: #f5f5f5; padding: 10px; border-radius: 4px; max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 12px; white-space: pre-wrap; margin-top: 10px;">
         Debug information will appear here.
       </div>
     </div>
   </div>
   
-  <!-- New About tab content -->
-  <div id="about" class="tab-content">
+  <div id="about" class="tab-content" role="tabpanel" aria-labelledby="tab-4" tabindex="0">
     <p>Information about this extension and how to support its development.</p>
     
     <div class="card">
@@ -626,15 +392,15 @@
   </div>
   
   <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-    <button id="save">Save Settings</button>
-    <button id="reset" style="background-color: #757575;">Reset to Defaults</button>
-    <button id="exportSettings" style="background-color: #4CAF50;">Export Settings</button>
-    <button id="importSettings" style="background-color: #FF9800;">Import Settings</button>
+    <button id="save" type="button">Save Settings</button>
+    <button id="reset" type="button" style="background-color: #757575;">Reset to Defaults</button>
+    <button id="exportSettings" type="button" style="background-color: #4CAF50;">Export Settings</button>
+    <button id="importSettings" type="button" style="background-color: #FF9800;">Import Settings</button>
     <input type="file" id="importFile" style="display: none;" accept=".json">
   </div>
   <div id="status" class="success">Settings saved successfully!</div>
   
-  <!-- New footer with version information -->
+  <!-- Footer with version information -->
   <div class="footer">
     <div class="version-info">
       <span id="version">Version: 1.0.0</span>
@@ -643,9 +409,16 @@
     <div>
       <a href="https://github.com/Palvaran" target="_blank">GitHub</a> | 
       <a href="https://ideasquantified.com" target="_blank">IdeasQuantified.com</a>
+      <button id="showAccessibilityHelp" style="background: none; border: none; color: #1976D2; text-decoration: underline; cursor: pointer; padding: 0;">
+        Keyboard Shortcuts
+      </button>
     </div>
   </div>
   
-  <script src="options.js"></script>
+  <!-- Import the main module script -->
+  <script type="module" src="options.js"></script>
+  
+  <!-- Add our direct debug buttons script -->
+  <script src="debug-buttons.js"></script>
 </body>
 </html>

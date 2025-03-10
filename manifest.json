@@ -19,7 +19,8 @@
   },
   "host_permissions": [
     "https://api.search.brave.com/*",
-    "https://api.openai.com/*"
+    "https://api.openai.com/*",
+    "<all_urls>"
   ],
   "background": {
     "service_worker": "background.js",

@@ -613,6 +613,13 @@
       try {
         // Create a handler for each action
         const handlers = {
+          // ADD THIS NEW HANDLER
+          'ping': () => {
+            // Simple ping handler to verify the content script is loaded and responsive
+            debugLog("Ping received, responding with pong");
+            return { pong: true };
+          },
+          
           'getArticleText': () => {
             // For article text, use a simplified extractor if the main one isn't available
             let result;
@@ -766,6 +773,64 @@
         }));
       }
     });
+
+    // Also add a direct chrome.runtime.onMessage listener as a fallback
+    try {
+      // First check if chrome is defined and we have access to runtime API
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+        chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+          debugLog("Direct chrome.runtime.onMessage received:", message?.action);
+          
+          // Handle ping specifically for checking if content script is loaded
+          if (message && message.action === 'ping') {
+            debugLog("Ping received via chrome.runtime.onMessage");
+            sendResponse({ pong: true });
+            return true;
+          }
+          
+          // For other messages, try to use the main event system
+          if (message && message.action) {
+            // Store the message in the global variable for the main handler to use
+            window.__FACT_CHECK_LAST_MESSAGE = {
+              message: message,
+              responseId: Date.now().toString()
+            };
+            
+            // Dispatch an event to trigger the main handler
+            window.dispatchEvent(new CustomEvent('FACT_CHECK_MESSAGE', {
+              detail: window.__FACT_CHECK_LAST_MESSAGE,
+              bubbles: true
+            }));
+            
+            // Handle async response
+            window.addEventListener('FACT_CHECK_RESPONSE', function responseHandler(event) {
+              if (event.detail && event.detail.responseId === window.__FACT_CHECK_LAST_MESSAGE.responseId) {
+                // Remove this listener to prevent memory leaks
+                window.removeEventListener('FACT_CHECK_RESPONSE', responseHandler);
+                
+                // Send the response back to the background script
+                if (event.detail.error) {
+                  sendResponse({ error: event.detail.error });
+                } else {
+                  sendResponse(event.detail.data);
+                }
+              }
+            });
+            
+            return true; // Indicates we'll send a response asynchronously
+          }
+          
+          // Default response for unhandled messages
+          sendResponse({ error: "Message not handled" });
+          return true;
+        });
+      } else {
+        debugLog("chrome.runtime.onMessage not available in this context");
+      }
+    } catch (error) {
+      console.error("Error setting up chrome.runtime.onMessage listener:", error);
+      // This is expected when running in the page context - don't worry about it
+    }
   }
 
   // Start initialization immediately
