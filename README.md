@@ -7,7 +7,7 @@
 - 🔍 Cross-references text with web search results
 - 🔓 100% Open Source and community-driven
 
-## 📥 Installation
+## 📥 Installation ##
 1. Clone the repo:
    ```bash
    git clone https://github.com/Palvaran/factcheck.git
@@ -24,6 +24,7 @@
 2. Right-click and select "Fact-Check with Rene".
 3. AI + web search analyze the claim.
 4. Get fact-check results instantly!
+
 **🛠 Contributing**
 Want to improve Rene? Fork the repo and submit a pull request!
 📌 Read our CONTRIBUTING.md for guidelines.
