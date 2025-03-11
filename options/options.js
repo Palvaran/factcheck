@@ -6,53 +6,73 @@ import { UiManager } from './modules/ui-manager.js';
 import { AccessibilityHelper } from './modules/accessibility.js';
 import { DebugTools } from './modules/debug-tools.js';
 import { SUPABASE_CONFIG } from '../utils/supabase-config.js';
+import { VersionManager } from './modules/version-manager.js';
 
 // Global references for easier debugging
 let analyticsManager = null;
 let debugTools = null;
+let uiManager = null;
+let versionManager = null;
 
-// Make analytics manager available globally for debugging
+// Make globals available for debugging
 window.getAnalyticsManager = () => analyticsManager;
+window.getVersionManager = () => versionManager;
 
 // Initialize all managers when DOM is loaded
 document.addEventListener('DOMContentLoaded', async () => {
   try {
     console.log("DOM content loaded, initializing options page");
     
-    // Initialize UI first (for visual feedback)
-    const uiManager = new UiManager();
+    // 1. First, initialize the UI manager and set up tabs
+    console.log("Setting up UI manager");
+    uiManager = new UiManager();
     uiManager.setupTabs();
-    uiManager.setupVersionInfo();
-
-    // Initialize settings manager
+    
+    // 2. Initialize version manager (for GitHub integration)
+    console.log("Setting up version manager");
+    versionManager = new VersionManager();
+    await versionManager.initializeVersionInfo();
+    
+    // 3. Initialize settings manager
+    console.log("Setting up settings manager");
     const settingsManager = new SettingsManager();
     await settingsManager.loadSettings();
     
-    // Initialize API key manager
+    // 4. Initialize API key manager
+    console.log("Setting up API key manager");
     const apiKeyManager = new ApiKeyManager();
     apiKeyManager.setupApiKeyFields();
     apiKeyManager.setupVisibilityToggles();
     
-    // Initialize analytics visualizations
+    // 5. Initialize analytics visualizations
+    console.log("Setting up analytics manager");
     analyticsManager = new AnalyticsManager();
     analyticsManager.loadAnalyticsData();
     analyticsManager.loadRecentFactChecks();
     analyticsManager.calculateUsageCosts();
     
-    // Initialize accessibility features
+    // 6. Initialize accessibility features
+    console.log("Setting up accessibility helper");
     const accessibilityHelper = new AccessibilityHelper();
     accessibilityHelper.enhanceAccessibility();
     
-    // Set up debug tools
+    // 7. Set up debug tools
+    console.log("Setting up debug tools");
     debugTools = new DebugTools();
-    debugTools.setAnalyticsManager(analyticsManager); // Pass the analytics manager reference
+    debugTools.setAnalyticsManager(analyticsManager);
     debugTools.setupDebugTools();
 
-    // Load Supabase configuration and initialize if analytics sharing is enabled
+    // 8. Load Supabase configuration and initialize if analytics sharing is enabled
+    console.log("Initializing Supabase");
     await initializeSupabase(analyticsManager);
     
-    // Set up event listeners for main buttons
-    setupEventListeners(settingsManager, apiKeyManager, analyticsManager, debugTools);
+    // 9. Set up event listeners for main buttons
+    console.log("Setting up event listeners");
+    setupEventListeners(settingsManager, apiKeyManager, analyticsManager, debugTools, versionManager);
+    
+    // 10. Load release notes
+    console.log("Loading release notes");
+    await versionManager.loadReleaseNotes();
     
     console.log("Options page initialized successfully");
   } catch (error) {
@@ -105,7 +125,7 @@ async function initializeSupabase(analyticsManager) {
 }
 
 // Set up global event listeners
-function setupEventListeners(settingsManager, apiKeyManager, analyticsManager, debugTools) {
+function setupEventListeners(settingsManager, apiKeyManager, analyticsManager, debugTools, versionManager) {
   console.log("Setting up event listeners");
   
   // Main settings buttons
@@ -130,9 +150,16 @@ function setupEventListeners(settingsManager, apiKeyManager, analyticsManager, d
   document.getElementById('clearRecentChecks')?.addEventListener('click', () => analyticsManager.clearRecentFactChecks());
   
   // Debug tools 
-  // Note: The Supabase test buttons are set up in the debugTools.setupSupabaseDebugButtons method
   document.getElementById('testAPIIntegration')?.addEventListener('click', () => debugTools.testAPIIntegration());
   document.getElementById('viewDebugInfo')?.addEventListener('click', () => debugTools.viewDebugInfo());
+  
+  // Version management
+  document.getElementById('commitLink')?.addEventListener('click', (e) => {
+    if (!e.target.href) {
+      e.preventDefault();
+      versionManager.refreshVersionInfo();
+    }
+  });
   
   // Accessibility help
   document.getElementById('showAccessibilityHelp')?.addEventListener('click', () => AccessibilityHelper.showAccessibilityHelp());

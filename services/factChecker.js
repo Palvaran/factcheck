@@ -1,4 +1,4 @@
-// services/factChecker.js - Updated with better debugging
+// services/factChecker.js - Updated with progress indicator support
 import { OpenAIService } from '../api/openai.js';
 import { BraveSearchService } from '../api/brave.js';
 import { CONTENT, DOMAINS } from '../utils/constants.js';
@@ -113,6 +113,9 @@ export class FactCheckerService {
     debugLog("Multi-model enabled:", this.settings.useMultiModel);
     
     try {
+      // Signal the content extraction step
+      await this._updateProgress('extraction');
+      
       // Get current date for context
       const today = new Date().toLocaleDateString('en-US', { 
         month: 'long', 
@@ -123,6 +126,10 @@ export class FactCheckerService {
       
       // Extract query for search context
       debugLog("Extracting search query...");
+      
+      // Signal the query generation step
+      await this._updateProgress('query');
+      
       const queryText = await this.openaiService.extractSearchQuery(text, this.settings.aiModel);
       debugLog("Query extracted, length:", queryText.length);  
       
@@ -152,6 +159,10 @@ export class FactCheckerService {
       // Only add the search operation if we have a Brave service
       if (this.braveService) {
         debugLog("Adding Brave search operation");
+        
+        // Signal the search step
+        await this._updateProgress('search');
+        
         operations.push(
           this.braveService.search(queryText)
             .then(result => ({ type: 'search', data: result }))
@@ -186,6 +197,9 @@ export class FactCheckerService {
       const analysisModel = this.settings.aiModel === 'hybrid' ? 'gpt-4o-mini' : this.settings.aiModel;
       debugLog(`Using ${analysisModel} for analysis`);
       
+      // Signal the analysis step
+      await this._updateProgress('analysis');
+      
       let factCheckResult;
       
       // Use multi-model verification if enabled
@@ -207,6 +221,9 @@ export class FactCheckerService {
           analysisModel
         );
       }
+      
+      // Signal the verification step
+      await this._updateProgress('verification');
       
       debugLog("Fact check completed successfully");
 
@@ -246,6 +263,32 @@ export class FactCheckerService {
           rating: null // Include null rating
         };
       }
+    }
+  }
+
+  // Helper method to send progress updates
+  async _updateProgress(stepId) {
+    try {
+      debugLog(`Updating progress step: ${stepId}`);
+      
+      // Send message to content script to update progress
+      chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+        if (tabs && tabs.length > 0 && tabs[0] && tabs[0].id) {
+          chrome.tabs.sendMessage(tabs[0].id, {
+            action: 'updateProgress',
+            stepId: stepId
+          }, (response) => {
+            if (chrome.runtime.lastError) {
+              debugLog("Error sending progress update:", chrome.runtime.lastError);
+            } else if (response) {
+              debugLog(`Progress update response: ${response.success ? 'success' : 'failed'}`);
+            }
+          });
+        }
+      });
+    } catch (error) {
+      console.error("Error updating progress:", error);
+      // Non-critical error, continue with fact check
     }
   }
 

@@ -1,4 +1,6 @@
 // modules/supabase-client.js
+import { DebugUtils } from '../../utils/debug-utils.js';
+
 /**
  * Supabase client for analytics data tracking
  * Handles sending analytics data to Supabase when user has opted in
@@ -45,10 +47,10 @@ export class SupabaseClient {
       await this.testConnection();
       
       this.initialized = true;
-      console.log("Supabase client initialized");
+      DebugUtils.log("SupabaseClient", "Supabase client initialized");
     } catch (error) {
       this.lastError = error.message;
-      console.error("Failed to initialize Supabase client:", error);
+      DebugUtils.error("SupabaseClient", "Failed to initialize Supabase client:", error);
       throw error;
     }
   }
@@ -74,7 +76,7 @@ export class SupabaseClient {
       
       return true;
     } catch (error) {
-      console.error("Supabase connection test failed:", error);
+      DebugUtils.error("SupabaseClient", "Supabase connection test failed:", error);
       throw new Error(`Supabase connection failed: ${error.message}`);
     }
   }
@@ -134,7 +136,7 @@ export class SupabaseClient {
       
       // Exit if user has opted out
       if (shareAnalytics === false) {
-        console.log("Analytics sharing disabled, not sending data to Supabase");
+        DebugUtils.log("SupabaseClient", "Analytics sharing disabled, not sending data to Supabase");
         return null;
       }
       
@@ -154,7 +156,7 @@ export class SupabaseClient {
         session_id: this.sessionId
       };
       
-      console.log("Sending data to Supabase:", analyticsData);
+      DebugUtils.log("SupabaseClient", "Sending data to Supabase:", analyticsData);
       
       // Send data to Supabase
       const response = await fetch(`${this.supabaseUrl}/rest/v1/fact_check_analytics`, {
@@ -183,19 +185,19 @@ export class SupabaseClient {
         
         if (responseText.trim()) {
           const data = JSON.parse(responseText);
-          console.log("Supabase trackFactCheck successful:", data);
+          DebugUtils.log("SupabaseClient", "Supabase trackFactCheck successful:", data);
           return data;
         } else {
-          console.log("Supabase trackFactCheck successful, no content returned");
+          DebugUtils.log("SupabaseClient", "Supabase trackFactCheck successful, no content returned");
           return { success: true, message: "Record created" };
         }
       } else {
-        console.log("Supabase trackFactCheck successful, non-JSON response");
+        DebugUtils.log("SupabaseClient", "Supabase trackFactCheck successful, non-JSON response");
         return { success: true, status: response.status };
       }
     } catch (error) {
       this.lastError = error.message;
-      console.error("Error tracking fact check in Supabase:", error);
+      DebugUtils.error("SupabaseClient", "Error tracking fact check in Supabase:", error);
       return { success: false, error: error.message };
     }
   }
@@ -207,7 +209,7 @@ export class SupabaseClient {
  */
   async trackFactCheckBatch(factCheckBatch) {
     if (!factCheckBatch || factCheckBatch.length === 0) {
-      console.log("No data to batch");
+      DebugUtils.log("SupabaseClient", "No data to batch");
       return { success: true, message: "No data to batch", count: 0 };
     }
     
@@ -219,36 +221,36 @@ export class SupabaseClient {
       
       // Exit if user has opted out
       if (shareAnalytics === false) {
-        console.log("Analytics sharing disabled, not sending batch data to Supabase");
+        DebugUtils.log("SupabaseClient", "Analytics sharing disabled, not sending batch data to Supabase");
         return { success: true, message: "Analytics sharing disabled", count: 0 };
       }
       
       // Make sure client is initialized
       if (!this.initialized) {
-        console.log("Supabase client not initialized, initializing now in trackFactCheckBatch");
+        DebugUtils.log("SupabaseClient", "Supabase client not initialized, initializing now in trackFactCheckBatch");
         try {
           await this.initialize();
-          console.log("Supabase client initialized successfully in trackFactCheckBatch");
+          DebugUtils.log("SupabaseClient", "Supabase client initialized successfully in trackFactCheckBatch");
         } catch (error) {
-          console.error("Failed to initialize Supabase client:", error);
+          DebugUtils.error("SupabaseClient", "Failed to initialize Supabase client:", error);
           return { success: false, error: `Client initialization failed: ${error.message}` };
         }
       }
       
       // Verify we have required fields
       if (!this.clientId || !this.sessionId) {
-        console.error("Missing clientId or sessionId, cannot send data");
+        DebugUtils.error("SupabaseClient", "Missing clientId or sessionId, cannot send data");
         return { success: false, error: "Missing clientId or sessionId" };
       }
       
       // Validate supabaseUrl and key
       if (!this.supabaseUrl || !this.supabaseKey) {
-        console.error("Missing Supabase URL or API key");
+        DebugUtils.error("SupabaseClient", "Missing Supabase URL or API key");
         return { success: false, error: "Missing Supabase URL or API key" };
       }
       
-      console.log(`Sending batch of ${factCheckBatch.length} records to Supabase`);
-      console.log(`Target endpoint: ${this.supabaseUrl}/rest/v1/fact_check_analytics`);
+      DebugUtils.log("SupabaseClient", `Sending batch of ${factCheckBatch.length} records to Supabase`);
+      DebugUtils.log("SupabaseClient", `Target endpoint: ${this.supabaseUrl}/rest/v1/fact_check_analytics`);
       
       try {
         // Send batch data to Supabase
@@ -266,24 +268,24 @@ export class SupabaseClient {
         if (!response.ok) {
           const errorText = await response.text();
           const errorInfo = `Status: ${response.status}, StatusText: ${response.statusText}, Details: ${errorText}`;
-          console.error(`Supabase batch error: ${errorInfo}`);
+          DebugUtils.error("SupabaseClient", `Supabase batch error: ${errorInfo}`);
           
           throw new Error(`Supabase batch error: ${response.status}. Details: ${errorText}`);
         }
         
-        console.log(`Successfully sent ${factCheckBatch.length} records to Supabase`);
+        DebugUtils.log("SupabaseClient", `Successfully sent ${factCheckBatch.length} records to Supabase`);
         return { 
           success: true, 
           count: factCheckBatch.length,
           message: `Successfully inserted ${factCheckBatch.length} records`
         };
       } catch (fetchError) {
-        console.error("Fetch error in trackFactCheckBatch:", fetchError);
+        DebugUtils.error("SupabaseClient", "Fetch error in trackFactCheckBatch:", fetchError);
         throw fetchError; // Re-throw for proper handling
       }
     } catch (error) {
       this.lastError = error.message;
-      console.error("Error tracking fact check batch in Supabase:", error);
+      DebugUtils.error("SupabaseClient", "Error tracking fact check batch in Supabase:", error);
       return { success: false, error: error.message };
     }
   }
@@ -353,7 +355,7 @@ export class SupabaseClient {
       }
     } catch (error) {
       this.lastError = error.message;
-      console.error("Error tracking feedback in Supabase:", error);
+      DebugUtils.error("SupabaseClient", "Error tracking feedback in Supabase:", error);
       return { success: false, error: error.message };
     }
   }
@@ -408,7 +410,7 @@ export class SupabaseClient {
       };
     } catch (error) {
       this.lastError = error.message;
-      console.error("Error tracking feedback batch in Supabase:", error);
+      DebugUtils.error("SupabaseClient", "Error tracking feedback batch in Supabase:", error);
       return { success: false, error: error.message };
     }
   }

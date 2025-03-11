@@ -1,4 +1,5 @@
 // utils/storage.js - Update to check both storage types
+import { DebugUtils } from './debug-utils.js';
 
 /**
  * Utility for consistent storage access
@@ -13,12 +14,12 @@ export const StorageUtils = {
   get: function(keys) {
     return new Promise((resolve, reject) => {
       try {
-        console.log("StorageUtils.get called with keys:", keys);
+        DebugUtils.log("Storage", "StorageUtils.get called with keys:", keys);
         
         // First try local storage
         chrome.storage.local.get(keys, (localResult) => {
           if (chrome.runtime.lastError) {
-            console.error("Error in StorageUtils.get local:", chrome.runtime.lastError);
+            DebugUtils.error("Storage", "Error in StorageUtils.get local:", chrome.runtime.lastError);
             // Try sync storage if local fails
             this.getFromSync(keys, resolve, reject);
             return;
@@ -29,7 +30,7 @@ export const StorageUtils = {
                            Object.values(localResult).some(v => v !== undefined && v !== null);
           
           if (hasValues) {
-            console.log("StorageUtils.get result from local:", localResult);
+            DebugUtils.log("Storage", "StorageUtils.get result from local:", localResult);
             resolve(localResult);
           } else {
             // Try sync storage if local has no values
@@ -37,7 +38,7 @@ export const StorageUtils = {
           }
         });
       } catch (error) {
-        console.error("Exception in StorageUtils.get:", error);
+        DebugUtils.error("Storage", "Exception in StorageUtils.get:", error);
         reject(error);
       }
     });
@@ -49,12 +50,12 @@ export const StorageUtils = {
   getFromSync: function(keys, resolve, reject) {
     chrome.storage.sync.get(keys, (syncResult) => {
       if (chrome.runtime.lastError) {
-        console.error("Error in StorageUtils.get sync:", chrome.runtime.lastError);
+        DebugUtils.error("Storage", "Error in StorageUtils.get sync:", chrome.runtime.lastError);
         reject(chrome.runtime.lastError);
         return;
       }
       
-      console.log("StorageUtils.get result from sync:", syncResult);
+      DebugUtils.log("Storage", "StorageUtils.get result from sync:", syncResult);
       resolve(syncResult);
     });
   },
@@ -67,7 +68,7 @@ export const StorageUtils = {
   set: function(data) {
     return new Promise((resolve, reject) => {
       try {
-        console.log("StorageUtils.set called with data:", data);
+        DebugUtils.log("Storage", "StorageUtils.set called with data:", data);
         
         // For API keys, set in both storages to be safe
         const isAPIKeyData = data.openaiApiKey || data.braveApiKey;
@@ -75,22 +76,22 @@ export const StorageUtils = {
         // Always set in local
         chrome.storage.local.set(data, () => {
           if (chrome.runtime.lastError) {
-            console.error("Error in StorageUtils.set local:", chrome.runtime.lastError);
+            DebugUtils.error("Storage", "Error in StorageUtils.set local:", chrome.runtime.lastError);
             reject(chrome.runtime.lastError);
             return;
           }
           
-          console.log("StorageUtils.set completed successfully in local");
+          DebugUtils.log("Storage", "StorageUtils.set completed successfully in local");
           
           // Also set in sync for API keys and some settings
           if (isAPIKeyData) {
             chrome.storage.sync.set(data, () => {
               if (chrome.runtime.lastError) {
-                console.warn("Warning: Failed to also set in sync storage:", chrome.runtime.lastError);
+                DebugUtils.warn("Storage", "Warning: Failed to also set in sync storage:", chrome.runtime.lastError);
                 // Still resolve since we succeeded in local
                 resolve();
               } else {
-                console.log("API keys also saved to sync storage");
+                DebugUtils.log("Storage", "API keys also saved to sync storage");
                 resolve();
               }
             });
@@ -99,7 +100,7 @@ export const StorageUtils = {
           }
         });
       } catch (error) {
-        console.error("Exception in StorageUtils.set:", error);
+        DebugUtils.error("Storage", "Exception in StorageUtils.set:", error);
         reject(error);
       }
     });
@@ -113,17 +114,21 @@ export const StorageUtils = {
   remove: function(keys) {
     return new Promise((resolve, reject) => {
       try {
+        DebugUtils.log("Storage", "Removing keys:", keys);
         // Remove from both storages
         chrome.storage.local.remove(keys, () => {
           chrome.storage.sync.remove(keys, () => {
             if (chrome.runtime.lastError) {
+              DebugUtils.error("Storage", "Error removing keys:", chrome.runtime.lastError);
               reject(chrome.runtime.lastError);
             } else {
+              DebugUtils.log("Storage", "Keys removed successfully");
               resolve();
             }
           });
         });
       } catch (error) {
+        DebugUtils.error("Storage", "Exception in remove:", error);
         reject(error);
       }
     });
@@ -136,17 +141,21 @@ export const StorageUtils = {
   clear: function() {
     return new Promise((resolve, reject) => {
       try {
+        DebugUtils.log("Storage", "Clearing all storage");
         // Clear both storages
         chrome.storage.local.clear(() => {
           chrome.storage.sync.clear(() => {
             if (chrome.runtime.lastError) {
+              DebugUtils.error("Storage", "Error clearing storage:", chrome.runtime.lastError);
               reject(chrome.runtime.lastError);
             } else {
+              DebugUtils.log("Storage", "Storage cleared successfully");
               resolve();
             }
           });
         });
       } catch (error) {
+        DebugUtils.error("Storage", "Exception in clear:", error);
         reject(error);
       }
     });

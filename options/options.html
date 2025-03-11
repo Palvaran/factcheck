@@ -350,8 +350,8 @@
       <div style="margin-top: 15px;">
         <p>If you find this extension useful, please consider supporting its development:</p>
         <div style="text-align: center; margin: 20px 0;">
-          <a href="https://ko-fi.com/palvaran" target="_blank" class="donation-button" style="display: inline-flex;">
-            <img src="https://storage.ko-fi.com/cdn/cup-border.png" alt="Ko-fi cup" class="kofi-icon">
+          <a href="https://ko-fi.com/ideasquantified" target="_blank" class="donation-button" style="display: inline-flex;">
+            <img src="https://storage.ko-fi.com/cdn/cup-border.png" alt="Ko-fi cup" class="kofi-icon" style="width: 40px; height: auto; margin-right: 5px;">
             Support this project
           </a>
         </div>
@@ -360,23 +360,8 @@
     
     <div class="card">
       <h2>What's New</h2>
-      <div style="margin-bottom: 15px;">
-        <strong>Version 1.0.0 (March 7, 2025)</strong>
-        <ul style="margin-top: 5px;">
-          <li>Initial release of the Fact-Check Extension</li>
-          <li>Support for GPT-3.5 Turbo and GPT-4o Mini models</li>
-          <li>Integration with Brave Search for improved context</li>
-          <li>Enhanced UI with customizable result positioning</li>
-        </ul>
-      </div>
-      
-      <div>
-        <strong>Version 0.9.0 (February 15, 2025)</strong>
-        <ul style="margin-top: 5px;">
-          <li>Beta testing release</li>
-          <li>Basic fact-checking functionality</li>
-          <li>Settings UI implementation</li>
-        </ul>
+      <div id="releaseNotes">
+        <p>Loading release information...</p>
       </div>
     </div>
     
@@ -387,6 +372,7 @@
         <li>Submit issues on our <a href="https://github.com/Palvaran" target="_blank">GitHub repository</a></li>
         <li>Email us at <a href="mailto:palvaran@ideasquantified.com">palvaran@ideasquantified.com</a></li>
         <li>Visit our website at <a href="https://ideasquantified.com" target="_blank">IdeasQuantified.com</a></li>
+        <li>Fund projects at <a href="https://ko-fi.com/ideasquantified" target="_blank">Ko-fi Page</a></li>
       </ul>
     </div>
   </div>
@@ -400,14 +386,15 @@
   </div>
   <div id="status" class="success">Settings saved successfully!</div>
   
-  <!-- Footer with version information -->
+  <!-- Footer with dynamic version information -->
   <div class="footer">
     <div class="version-info">
-      <span id="version">Version: 1.0.0</span>
-      <span id="buildDate">Build date: March 7, 2025</span>
+      <span id="version">Version: Loading...</span>
+      <span id="buildDate">Build date: Loading...</span>
+      <a href="" id="commitLink" target="_blank" style="margin-left: 10px; display: none;">View commit</a>
     </div>
     <div>
-      <a href="https://github.com/Palvaran" target="_blank">GitHub</a> | 
+      <a href="https://github.com/Palvaran/factcheck" target="_blank">GitHub</a> | 
       <a href="https://ideasquantified.com" target="_blank">IdeasQuantified.com</a>
       <button id="showAccessibilityHelp" style="background: none; border: none; color: #1976D2; text-decoration: underline; cursor: pointer; padding: 0;">
         Keyboard Shortcuts

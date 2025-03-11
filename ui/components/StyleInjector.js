@@ -177,6 +177,34 @@ export class StyleInjector {
       .pagination-info {
         color: ${isDarkMode ? '#bbb' : '#555'};
       }
+      
+      /* Progress Indicator Styles */
+      .fact-check-steps {
+        margin-top: 15px;
+        width: 100%;
+      }
+      
+      .fact-check-step {
+        display: flex;
+        align-items: center;
+        margin-bottom: 6px;
+        font-size: 12px;
+        transition: color 0.3s ease;
+      }
+      
+      .step-indicator {
+        margin-right: 8px;
+        transition: color 0.3s ease;
+      }
+      
+      .fact-check-step.completed {
+        color: ${theme.SUCCESS};
+      }
+      
+      .fact-check-step.active {
+        color: ${theme.TEXT};
+        font-weight: bold;
+      }
     `;
     document.head.appendChild(style);
     

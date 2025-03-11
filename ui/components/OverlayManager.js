@@ -49,7 +49,19 @@ export class OverlayManager {
     const textContainer = document.createElement('div');
     textContainer.id = 'factCheckText';
     
+    // Create the loading indicator with progress steps
     const loadingContainer = this.loadingIndicator.create(isDarkMode);
+    
+    // Store a reference to the loading indicator instance for progress updates
+    window.loadingIndicatorInstance = this.loadingIndicator;
+    
+    // Add event listener for progress updates via custom events
+    loadingContainer.addEventListener('fact-check-progress', (event) => {
+      if (event.detail && event.detail.stepId) {
+        this.loadingIndicator.updateProgress(event.detail.stepId);
+      }
+    });
+    
     textContainer.appendChild(loadingContainer);
     
     overlay.appendChild(textContainer);

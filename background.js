@@ -1,5 +1,6 @@
 // background.js - Main coordinator that delegates to service modules
 import { StorageUtils } from './utils/storage.js';
+import { DebugUtils } from './utils/debug-utils.js';
 import { FactCheckerService } from './services/factChecker.js';
 import { AnalyticsService } from './services/analytics.js';
 import { OpenAIService } from './api/openai.js';
@@ -9,7 +10,10 @@ import { SUPABASE_CONFIG } from './utils/supabase-config.js';
 import { API, REQUEST, CONTENT, CACHE, STYLES, DOMAINS } from './utils/constants.js';
 
 // Global debug flag - set to false for production
-const DEBUG = true;
+const DEBUG = false;
+
+// Initialize the debug utility with our setting
+DebugUtils.setDebugEnabled(DEBUG);
 
 // Initialize Supabase client
 let supabaseClient = null;
@@ -25,14 +29,9 @@ let isSyncing = false;
 let lastSyncTime = 0;
 let syncErrorCount = 0;
 
-// Debug logging helper
-function debugLog(...args) {
-  if (DEBUG) console.log(...args);
-}
-
 // Setup context menus on install
 chrome.runtime.onInstalled.addListener(() => {
-  debugLog("Extension installed, setting up context menus");
+  DebugUtils.log("Background", "Extension installed, setting up context menus");
   setupContextMenus();
   initializeDefaultSettings();
   initializeSupabase();
@@ -41,7 +40,7 @@ chrome.runtime.onInstalled.addListener(() => {
 // Initialize Supabase client
 async function initializeSupabase() {
   try {
-    debugLog("Initializing Supabase client");
+    DebugUtils.log("Background", "Initializing Supabase client");
     // Create Supabase client
     supabaseClient = new SupabaseClient(
       SUPABASE_CONFIG.PROJECT_URL,
@@ -51,9 +50,9 @@ async function initializeSupabase() {
     // Explicitly initialize the client to set initialized=true
     try {
       await supabaseClient.initialize();
-      debugLog("Supabase client initialized successfully");
+      DebugUtils.log("Background", "Supabase client initialized successfully");
     } catch (initError) {
-      console.error("Error during initial Supabase initialization:", initError);
+      DebugUtils.error("Background", "Error during initial Supabase initialization:", initError);
       // We'll continue setting up sync even if there's an error
       // The sync function will retry initialization later
     }
@@ -63,7 +62,7 @@ async function initializeSupabase() {
       try {
         syncPendingAnalytics();
       } catch (error) {
-        console.error('Periodic sync error:', error);
+        DebugUtils.error("Background", 'Periodic sync error:', error);
       }
     }, SYNC_INTERVAL);
     
@@ -72,13 +71,13 @@ async function initializeSupabase() {
       try {
         syncPendingAnalytics();
       } catch (error) {
-        console.error('Initial sync error:', error);
+        DebugUtils.error("Background", 'Initial sync error:', error);
       }
     }, 5000);
     
-    debugLog("Supabase client and sync schedule initialized");
+    DebugUtils.log("Background", "Supabase client and sync schedule initialized");
   } catch (error) {
-    console.error("Error initializing Supabase:", error);
+    DebugUtils.error("Background", "Error initializing Supabase:", error);
   }
 }
 
@@ -95,7 +94,7 @@ function setupContextMenus() {
     title: 'Fact-check entire page',
     contexts: ['page']
   });
-  debugLog("Context menus created");
+  DebugUtils.log("Background", "Context menus created");
 }
 
 // Initialize default settings
@@ -112,7 +111,7 @@ async function initializeDefaultSettings() {
       'shareAnalytics'
     ]);
     
-    debugLog("Current settings loaded:", {
+    DebugUtils.log("Background", "Current settings loaded:", {
       aiModel: settings.aiModel,
       useMultiModel: settings.useMultiModel,
       maxTokens: settings.maxTokens,
@@ -125,7 +124,7 @@ async function initializeDefaultSettings() {
     
     // If settings don't exist, set defaults
     if (!settings.aiModel) {
-      debugLog("Setting default settings");
+      DebugUtils.log("Background", "Setting default settings");
       await StorageUtils.set({
         aiModel: 'gpt-4o-mini',
         useMultiModel: false,
@@ -136,13 +135,13 @@ async function initializeDefaultSettings() {
       });
     }
   } catch (error) {
-    console.error("Error initializing settings:", error);
+    DebugUtils.error("Background", "Error initializing settings:", error);
   }
 }
 
 // Ensure content script is loaded with better retry mechanism
 async function ensureContentScriptLoaded(tabId, maxRetries = 3) {
-  debugLog(`Ensuring content script is loaded in tab ${tabId} with ${maxRetries} retries`);
+  DebugUtils.log("Background", `Ensuring content script is loaded in tab ${tabId} with ${maxRetries} retries`);
   
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
@@ -152,7 +151,7 @@ async function ensureContentScriptLoaded(tabId, maxRetries = 3) {
         files: ['content.js']
       });
       
-      debugLog(`Content script injection attempt ${attempt+1} completed`);
+      DebugUtils.log("Background", `Content script injection attempt ${attempt+1} completed`);
       
       // Add a longer delay for complex pages (500ms instead of 250ms)
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -160,11 +159,11 @@ async function ensureContentScriptLoaded(tabId, maxRetries = 3) {
       // Verify the content script is actually responding
       const isResponding = await isContentScriptResponding(tabId);
       if (isResponding) {
-        debugLog("Content script is responding properly");
+        DebugUtils.log("Background", "Content script is responding properly");
         return true;
       }
       
-      debugLog(`Content script not yet responding on attempt ${attempt+1}, waiting...`);
+      DebugUtils.log("Background", `Content script not yet responding on attempt ${attempt+1}, waiting...`);
       
       // Exponential backoff before retry
       await new Promise(resolve => 
@@ -172,12 +171,12 @@ async function ensureContentScriptLoaded(tabId, maxRetries = 3) {
       );
     } catch (error) {
       // This might fail if script is already injected, which is okay
-      debugLog(`Script injection attempt ${attempt+1} error (might be already loaded): ${error.message}`);
+      DebugUtils.log("Background", `Script injection attempt ${attempt+1} error (might be already loaded): ${error.message}`);
       
       // Even if injection failed, check if content script is responding
       const isResponding = await isContentScriptResponding(tabId);
       if (isResponding) {
-        debugLog("Content script is already loaded and responding");
+        DebugUtils.log("Background", "Content script is already loaded and responding");
         return true;
       }
       
@@ -190,7 +189,7 @@ async function ensureContentScriptLoaded(tabId, maxRetries = 3) {
     }
   }
   
-  debugLog("Failed to ensure content script is loaded after multiple attempts");
+  DebugUtils.log("Background", "Failed to ensure content script is loaded after multiple attempts");
   return false;
 }
 
@@ -201,20 +200,20 @@ async function isContentScriptResponding(tabId) {
     const response = await sendMessageToTab(tabId, { action: 'ping' });
     return response && response.pong === true;
   } catch (error) {
-    debugLog(`Content script ping failed: ${error.message}`);
+    DebugUtils.log("Background", `Content script ping failed: ${error.message}`);
     return false;
   }
 }
 
 // Context menu click handler
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  debugLog("Context menu clicked:", info.menuItemId);
+  DebugUtils.log("Background", "Context menu clicked:", info.menuItemId);
   try {
     const { openaiApiKey, braveApiKey } = await StorageUtils.get(['openaiApiKey', 'braveApiKey']);
-    debugLog("API keys present:", !!openaiApiKey, !!braveApiKey);
+    DebugUtils.log("Background", "API keys present:", !!openaiApiKey, !!braveApiKey);
     
     if (!openaiApiKey) {
-      console.error("Missing OpenAI API key");
+      DebugUtils.error("Background", "Missing OpenAI API key");
       await executeScript(tab.id, () => alert('Please set your OpenAI API key in the extension options.'));
       return;
     }
@@ -225,49 +224,49 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       await handleSelectionCheck(info.selectionText, tab, openaiApiKey, braveApiKey);
     }
   } catch (error) {
-    console.error("Context menu handler error:", error);
+    DebugUtils.error("Background", "Context menu handler error:", error);
     await handleError(tab.id, 'Error processing request.');
   }
 });
 
 // Handle checking an entire page
 async function handlePageCheck(tab, openaiApiKey, braveApiKey) {
-  debugLog(`Starting page check for tab ${tab.id}: ${tab.url}`);
+  DebugUtils.log("Background", `Starting page check for tab ${tab.id}: ${tab.url}`);
   try {
     // Ensure content script is loaded (now includes delay)
     await ensureContentScriptLoaded(tab.id);
     
-    debugLog("Requesting article text from content script");
+    DebugUtils.log("Background", "Requesting article text from content script");
     const response = await getArticleTextFromTab(tab.id);
-    debugLog("Article text response received:", response ? "yes" : "no");
+    DebugUtils.log("Background", "Article text response received:", response ? "yes" : "no");
     
     if (response && response.articleText) {
       await processFactCheck(response.articleText, openaiApiKey, braveApiKey, tab);
     } else {
-      console.error("No article text extracted");
+      DebugUtils.error("Background", "No article text extracted");
       await executeScript(tab.id, () => alert('Could not extract article text.'));
     }
   } catch (error) {
-    console.error("Error getting article text:", error);
+    DebugUtils.error("Background", "Error getting article text:", error);
     await executeScript(tab.id, () => alert('Error extracting text from page.'));
   }
 }
 
 // Handle checking selected text
 async function handleSelectionCheck(text, tab, openaiApiKey, braveApiKey) {
-  debugLog(`Starting selection check with ${text.length} characters of text`);
+  DebugUtils.log("Background", `Starting selection check with ${text.length} characters of text`);
   await processFactCheck(text, openaiApiKey, braveApiKey, tab);
 }
 
 // Extension icon click handler
 chrome.action.onClicked.addListener(async (tab) => {
-  debugLog("Extension icon clicked");
+  DebugUtils.log("Background", "Extension icon clicked");
   try {
     const { openaiApiKey, braveApiKey } = await StorageUtils.get(['openaiApiKey', 'braveApiKey']);
-    debugLog("API keys present:", !!openaiApiKey, !!braveApiKey);
+    DebugUtils.log("Background", "API keys present:", !!openaiApiKey, !!braveApiKey);
     
     if (!openaiApiKey) {
-      console.error("Missing OpenAI API key");
+      DebugUtils.error("Background", "Missing OpenAI API key");
       await executeScript(tab.id, () => alert('Please set your OpenAI API key in the extension options.'));
       return;
     }
@@ -281,28 +280,28 @@ chrome.action.onClicked.addListener(async (tab) => {
       function: () => window.getSelection().toString()
     });
 
-    debugLog("Selected text:", selectedText ? "found" : "none");
+    DebugUtils.log("Background", "Selected text:", selectedText ? "found" : "none");
     if (selectedText && selectedText.trim().length > 0) {
       await processFactCheck(selectedText, openaiApiKey, braveApiKey, tab);
     } else {
       await handlePageCheck(tab, openaiApiKey, braveApiKey);
     }
   } catch (error) {
-    console.error("Error handling extension click:", error);
+    DebugUtils.error("Background", "Error handling extension click:", error);
   }
 });
 
 // Main fact-check processing function
 async function processFactCheck(text, openaiApiKey, braveApiKey, tab) {
-  debugLog("Starting fact check process with text length:", text.length);
+  DebugUtils.log("Background", "Starting fact check process with text length:", text.length);
   
   // Ensure content script is loaded before showing overlay (now includes delay)
   const contentInjected = await ensureContentScriptLoaded(tab.id);
-  debugLog("Content script loaded status:", contentInjected);
+  DebugUtils.log("Background", "Content script loaded status:", contentInjected);
   
   // Show loading overlay
   const overlayShown = await showOverlayWithRetry(tab.id);
-  debugLog("Overlay shown:", overlayShown);
+  DebugUtils.log("Background", "Overlay shown:", overlayShown);
   
   try {
     // Get settings
@@ -314,40 +313,40 @@ async function processFactCheck(text, openaiApiKey, braveApiKey, tab) {
       'rateLimit'
     ]);
     
-    debugLog("Settings retrieved");
+    DebugUtils.log("Background", "Settings retrieved");
     
     // Create fact checker service
-    debugLog("Creating fact checker with API keys available:", !!openaiApiKey, !!braveApiKey);
+    DebugUtils.log("Background", "Creating fact checker with API keys available:", !!openaiApiKey, !!braveApiKey);
     const factChecker = new FactCheckerService(openaiApiKey, braveApiKey, settings);
     
     // Get article metadata if available
     let sourceMetadata = {};
     try {
-      debugLog("Attempting to get article metadata");
+      DebugUtils.log("Background", "Attempting to get article metadata");
       const response = await getArticleTextFromTab(tab.id);
       if (response && response.metadata) {
         sourceMetadata = response.metadata;
-        debugLog("Article metadata received");
+        DebugUtils.log("Background", "Article metadata received");
       }
     } catch (error) {
-      console.error("Error getting article metadata:", error);
+      DebugUtils.error("Background", "Error getting article metadata:", error);
     }
     
     // Perform fact check
-    debugLog("Starting fact check analysis");
+    DebugUtils.log("Background", "Starting fact check analysis");
     const factCheckResponse = await factChecker.check(text);
 
     // Destructure all values, making sure to extract the rating
     const { result, queryText, rating } = factCheckResponse;
 
-    debugLog("Fact check completed", {
+    DebugUtils.log("Background", "Fact check completed", {
       queryTextLength: queryText.length,
       resultLength: result.length,
       rating: rating
     });
     
     // Update overlay with results
-    debugLog("Updating overlay with results");
+    DebugUtils.log("Background", "Updating overlay with results");
     await updateOverlayWithRetry(tab.id, result, sourceMetadata);
     
     // Create analytics data with additional details for Supabase
@@ -373,23 +372,23 @@ async function processFactCheck(text, openaiApiKey, braveApiKey, tab) {
     
     // Record analytics (enhanced with more details)
     AnalyticsService.recordFactCheck(text, queryText, analyticsData);
-    debugLog("Analytics recorded with rating:", rating);
+    DebugUtils.log("Background", "Analytics recorded with rating:", rating);
   } catch (error) {
-    console.error("Error in processFactCheck:", error);
+    DebugUtils.error("Background", "Error in processFactCheck:", error);
     await updateOverlayWithRetry(tab.id, 'Error: An unexpected error occurred during fact-checking. Please try again.', {});
   }
 }
 
 // Helper function to show overlay with retry
 async function showOverlayWithRetry(tabId, maxRetries = REQUEST.RETRY.MAX_ATTEMPTS) {
-  debugLog(`Attempting to show overlay in tab ${tabId}`);
+  DebugUtils.log("Background", `Attempting to show overlay in tab ${tabId}`);
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       await sendMessageToTab(tabId, { action: 'createOverlay' });
-      debugLog("Overlay creation message sent successfully");
+      DebugUtils.log("Background", "Overlay creation message sent successfully");
       return true;
     } catch (error) {
-      debugLog(`Attempt ${attempt+1} to show overlay failed`);
+      DebugUtils.log("Background", `Attempt ${attempt+1} to show overlay failed`);
       if (attempt < maxRetries - 1) {
         // Wait before retry with exponential backoff
         const backoffTime = Math.min(
@@ -400,13 +399,13 @@ async function showOverlayWithRetry(tabId, maxRetries = REQUEST.RETRY.MAX_ATTEMP
       }
     }
   }
-  console.error("Could not create overlay after multiple attempts");
+  DebugUtils.error("Background", "Could not create overlay after multiple attempts");
   return false;
 }
 
 // Helper function to update overlay with retry
 async function updateOverlayWithRetry(tabId, result, metadata, maxRetries = REQUEST.RETRY.MAX_ATTEMPTS) {
-  debugLog(`Attempting to update overlay in tab ${tabId}`);
+  DebugUtils.log("Background", `Attempting to update overlay in tab ${tabId}`);
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       await sendMessageToTab(tabId, { 
@@ -414,10 +413,10 @@ async function updateOverlayWithRetry(tabId, result, metadata, maxRetries = REQU
         result: result,
         metadata: metadata
       });
-      debugLog("Overlay update message sent successfully");
+      DebugUtils.log("Background", "Overlay update message sent successfully");
       return true;
     } catch (error) {
-      debugLog(`Attempt ${attempt+1} to update overlay failed`);
+      DebugUtils.log("Background", `Attempt ${attempt+1} to update overlay failed`);
       if (attempt < maxRetries - 1) {
         // Exponential backoff using constants
         const backoffTime = Math.min(
@@ -428,26 +427,26 @@ async function updateOverlayWithRetry(tabId, result, metadata, maxRetries = REQU
       }
     }
   }
-  console.error(`Failed to update overlay after ${maxRetries} attempts`);
+  DebugUtils.error("Background", `Failed to update overlay after ${maxRetries} attempts`);
   return false;
 }
 
 // Promise-based wrapper for sending messages to tabs
 function sendMessageToTab(tabId, message) {
-  debugLog(`Sending message to tab ${tabId}:`, message.action);
+  DebugUtils.log("Background", `Sending message to tab ${tabId}:`, message.action);
   return new Promise((resolve, reject) => {
     try {
       chrome.tabs.sendMessage(tabId, message, (response) => {
         if (chrome.runtime.lastError) {
-          if (DEBUG) console.error("Error sending message:", chrome.runtime.lastError);
+          DebugUtils.error("Background", "Error sending message:", chrome.runtime.lastError);
           reject(chrome.runtime.lastError);
         } else {
-          debugLog(`Message ${message.action} sent successfully`);
+          DebugUtils.log("Background", `Message ${message.action} sent successfully`);
           resolve(response);
         }
       });
     } catch (error) {
-      console.error("Exception sending message:", error);
+      DebugUtils.error("Background", "Exception sending message:", error);
       reject(error);
     }
   });
@@ -455,7 +454,7 @@ function sendMessageToTab(tabId, message) {
 
 // Promise-based wrapper for chrome.tabs.sendMessage with retry logic
 function getArticleTextFromTab(tabId, maxRetries = 3) {
-  debugLog(`Requesting article text from tab ${tabId} with ${maxRetries} retries`);
+  DebugUtils.log("Background", `Requesting article text from tab ${tabId} with ${maxRetries} retries`);
   
   return new Promise(async (resolve, reject) => {
     for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -463,7 +462,7 @@ function getArticleTextFromTab(tabId, maxRetries = 3) {
         // First, ensure content script is definitely loaded
         const contentScriptLoaded = await ensureContentScriptLoaded(tabId);
         if (!contentScriptLoaded) {
-          debugLog(`Could not ensure content script is loaded on attempt ${attempt+1}`);
+          DebugUtils.log("Background", `Could not ensure content script is loaded on attempt ${attempt+1}`);
           // Continue to try sending message anyway - sometimes this works
         }
         
@@ -475,7 +474,7 @@ function getArticleTextFromTab(tabId, maxRetries = 3) {
         );
         
         if (response) {
-          debugLog("Article text received", {
+          DebugUtils.log("Background", "Article text received", {
             hasText: !!response.articleText,
             textLength: response.articleText?.length,
             hasMetadata: !!response.metadata
@@ -483,10 +482,10 @@ function getArticleTextFromTab(tabId, maxRetries = 3) {
           
           // If we got a response but no text, try a fallback
           if (!response.articleText || response.articleText.length < 50) {
-            debugLog("Got response but insufficient text, trying fallback extraction");
+            DebugUtils.log("Background", "Got response but insufficient text, trying fallback extraction");
             const fallbackText = await extractTextWithFallback(tabId);
             if (fallbackText && fallbackText.length > 100) {
-              debugLog("Fallback extraction successful");
+              DebugUtils.log("Background", "Fallback extraction successful");
               return resolve({ 
                 articleText: fallbackText,
                 metadata: response.metadata || {}
@@ -498,7 +497,7 @@ function getArticleTextFromTab(tabId, maxRetries = 3) {
         }
         
         // If we reach here, no response was received
-        debugLog(`No response on attempt ${attempt+1}, retrying...`);
+        DebugUtils.log("Background", `No response on attempt ${attempt+1}, retrying...`);
         
         // Wait before retry
         if (attempt < maxRetries - 1) {
@@ -507,25 +506,25 @@ function getArticleTextFromTab(tabId, maxRetries = 3) {
           );
         }
       } catch (error) {
-        debugLog(`Error on attempt ${attempt+1}: ${error.message}`);
+        DebugUtils.log("Background", `Error on attempt ${attempt+1}: ${error.message}`);
         
         if (attempt === maxRetries - 1) {
           // Last attempt failed
-          console.error("All attempts to get article text failed");
+          DebugUtils.error("Background", "All attempts to get article text failed");
           
           // Try fallback method as last resort
           try {
-            debugLog("Trying fallback text extraction as last resort");
+            DebugUtils.log("Background", "Trying fallback text extraction as last resort");
             const fallbackText = await extractTextWithFallback(tabId);
             if (fallbackText && fallbackText.length > 100) {
-              debugLog("Fallback extraction successful");
+              DebugUtils.log("Background", "Fallback extraction successful");
               return resolve({ 
                 articleText: fallbackText,
                 metadata: { title: "Extracted content", source: "Fallback extraction" } 
               });
             }
           } catch (fallbackError) {
-            debugLog("Fallback extraction also failed");
+            DebugUtils.log("Background", "Fallback extraction also failed");
           }
           
           reject(error);
@@ -610,14 +609,14 @@ async function extractTextWithFallback(tabId) {
     
     return result?.result || '';
   } catch (error) {
-    console.error("Fallback extraction failed:", error);
+    DebugUtils.error("Background", "Fallback extraction failed:", error);
     return '';
   }
 }
 
 // Execute script in tab with error handling
 function executeScript(tabId, func) {
-  debugLog(`Executing script in tab ${tabId}`);
+  DebugUtils.log("Background", `Executing script in tab ${tabId}`);
   return new Promise((resolve, reject) => {
     try {
       chrome.scripting.executeScript({
@@ -625,15 +624,15 @@ function executeScript(tabId, func) {
         function: func
       }, (results) => {
         if (chrome.runtime.lastError) {
-          console.error("Error executing script:", chrome.runtime.lastError);
+          DebugUtils.error("Background", "Error executing script:", chrome.runtime.lastError);
           reject(chrome.runtime.lastError);
         } else {
-          debugLog("Script executed successfully");
+          DebugUtils.log("Background", "Script executed successfully");
           resolve(results);
         }
       });
     } catch (error) {
-      console.error("Exception executing script:", error);
+      DebugUtils.error("Background", "Exception executing script:", error);
       reject(error);
     }
   });
@@ -641,11 +640,11 @@ function executeScript(tabId, func) {
 
 // Handle errors by showing an alert in the tab
 async function handleError(tabId, message) {
-  console.error(`Handling error in tab ${tabId}: ${message}`);
+  DebugUtils.error("Background", `Handling error in tab ${tabId}: ${message}`);
   try {
     await executeScript(tabId, (msg) => alert(msg), [message]);
   } catch (error) {
-    console.error("Error showing error message:", error);
+    DebugUtils.error("Background", "Error showing error message:", error);
   }
 }
 
@@ -656,19 +655,19 @@ async function handleError(tabId, message) {
 async function syncPendingAnalytics() {
   // Prevent concurrent syncs
   if (isSyncing) {
-    debugLog('Analytics sync already in progress, skipping');
+    DebugUtils.log("Background", 'Analytics sync already in progress, skipping');
     return;
   }
   
   try {
     isSyncing = true;
-    debugLog('Starting Supabase analytics sync');
+    DebugUtils.log("Background", 'Starting Supabase analytics sync');
     
     // Check if analytics sharing is enabled
     const { shareAnalytics } = await StorageUtils.get(['shareAnalytics']);
     
     if (shareAnalytics === false) {
-      debugLog('Analytics sharing disabled, skipping sync');
+      DebugUtils.log("Background", 'Analytics sharing disabled, skipping sync');
       return;
     }
     
@@ -677,10 +676,10 @@ async function syncPendingAnalytics() {
     const pendingAnalytics = result.pendingAnalytics || [];
     
     // Now we can log it safely
-    debugLog(`Found ${pendingAnalytics.length} pending analytics to sync`);
+    DebugUtils.log("Background", `Found ${pendingAnalytics.length} pending analytics to sync`);
     
     if (!pendingAnalytics || pendingAnalytics.length === 0) {
-      debugLog('No pending analytics to sync');
+      DebugUtils.log("Background", 'No pending analytics to sync');
       return;
     }
     
@@ -689,13 +688,13 @@ async function syncPendingAnalytics() {
     if (pendingAnalytics.length < MIN_BATCH_THRESHOLD && 
         (now - lastSyncTime < SYNC_INTERVAL * 2) && 
         lastSyncTime !== 0) {
-      debugLog(`Only ${pendingAnalytics.length} records pending, waiting for more before syncing`);
+      DebugUtils.log("Background", `Only ${pendingAnalytics.length} records pending, waiting for more before syncing`);
       return;
     }
     
     // Initialize Supabase client if needed - With better error handling
     if (!supabaseClient) {
-      console.error("Supabase client is null! Creating a new instance...");
+      DebugUtils.error("Background", "Supabase client is null! Creating a new instance...");
       supabaseClient = new SupabaseClient(
         SUPABASE_CONFIG.PROJECT_URL,
         SUPABASE_CONFIG.ANON_KEY
@@ -703,19 +702,19 @@ async function syncPendingAnalytics() {
     }
     
     if (!supabaseClient.initialized) {
-      debugLog("Supabase client not initialized, initializing now");
+      DebugUtils.log("Background", "Supabase client not initialized, initializing now");
       try {
         await supabaseClient.initialize();
-        debugLog("Supabase client initialized successfully during sync");
+        DebugUtils.log("Background", "Supabase client initialized successfully during sync");
       } catch (initError) {
-        console.error("Failed to initialize Supabase client during sync:", initError);
+        DebugUtils.error("Background", "Failed to initialize Supabase client during sync:", initError);
         // We'll attempt to proceed anyway - the supabaseClient methods have their own error handling
       }
     }
     
     // Additional check for client and session ID
     if (!supabaseClient.clientId || !supabaseClient.sessionId) {
-      console.warn("Missing clientId or sessionId in Supabase client");
+      DebugUtils.warn("Background", "Missing clientId or sessionId in Supabase client");
       try {
         // Try to generate these if missing
         if (!supabaseClient.clientId) {
@@ -725,7 +724,7 @@ async function syncPendingAnalytics() {
           supabaseClient.sessionId = supabaseClient.generateSessionId();
         }
       } catch (idError) {
-        console.error("Error generating client/session IDs:", idError);
+        DebugUtils.error("Background", "Error generating client/session IDs:", idError);
       }
     }
     
@@ -735,7 +734,7 @@ async function syncPendingAnalytics() {
       batches.push(pendingAnalytics.slice(i, i + BATCH_SIZE));
     }
     
-    debugLog(`Created ${batches.length} batches for syncing`);
+    DebugUtils.log("Background", `Created ${batches.length} batches for syncing`);
     
     // Process each batch
     let successCount = 0;
@@ -743,7 +742,7 @@ async function syncPendingAnalytics() {
     
     for (const [batchIndex, batch] of batches.entries()) {
       try {
-        debugLog(`Processing batch ${batchIndex + 1} of ${batches.length} (${batch.length} records)`);
+        DebugUtils.log("Background", `Processing batch ${batchIndex + 1} of ${batches.length} (${batch.length} records)`);
         
         // Format data for Supabase
         const formattedBatch = batch.map(item => ({
@@ -759,21 +758,21 @@ async function syncPendingAnalytics() {
           timestamp: new Date(item.timestamp).toISOString()
         }));
         
-        debugLog(`Sending batch ${batchIndex + 1} to Supabase with ${formattedBatch.length} records`);
+        DebugUtils.log("Background", `Sending batch ${batchIndex + 1} to Supabase with ${formattedBatch.length} records`);
         
         // Send the batch to Supabase
         const result = await supabaseClient.trackFactCheckBatch(formattedBatch);
         
         if (result && result.success) {
           successCount += batch.length;
-          debugLog(`Successfully synced batch ${batchIndex + 1}, total success: ${successCount}`);
+          DebugUtils.log("Background", `Successfully synced batch ${batchIndex + 1}, total success: ${successCount}`);
         } else {
-          console.error(`Failed to sync batch ${batchIndex + 1}:`, result?.error || 'Unknown error');
+          DebugUtils.error("Background", `Failed to sync batch ${batchIndex + 1}:`, result?.error || 'Unknown error');
           // Mark these records for retry
           failedRecords.push(...batch);
         }
       } catch (error) {
-        console.error(`Error processing batch ${batchIndex + 1}:`, error);
+        DebugUtils.error("Background", `Error processing batch ${batchIndex + 1}:`, error);
         // Mark these records for retry
         failedRecords.push(...batch);
       }
@@ -803,21 +802,21 @@ async function syncPendingAnalytics() {
         syncErrorCount++;
       }
       
-      debugLog(`Sync completed. ${successCount} records synced successfully, ${failedRecords.length} failed.`);
+      DebugUtils.log("Background", `Sync completed. ${successCount} records synced successfully, ${failedRecords.length} failed.`);
       console.log(`Supabase sync completed: ${successCount} records synced, ${failedRecords.length} failed`);
     }
     
     // Update last sync time
     lastSyncTime = Date.now();
   } catch (error) {
-    console.error('Error syncing analytics:', error);
+    DebugUtils.error("Background", 'Error syncing analytics:', error);
     syncErrorCount++;
   } finally {
     isSyncing = false;
     
     // If we've had too many errors, slow down sync attempts
     if (syncErrorCount > MAX_RETRY_ATTEMPTS) {
-      console.warn(`Too many sync errors (${syncErrorCount}), extending sync interval`);
+      DebugUtils.warn("Background", `Too many sync errors (${syncErrorCount}), extending sync interval`);
       // We'll rely on the regular interval, but could implement backoff here
     }
   }
@@ -828,11 +827,11 @@ async function syncPendingAnalytics() {
  * @returns {Promise<object>} Result of sync operation
  */
 async function forceSyncNow() {
-  debugLog("Force sync requested via extension UI");
+  DebugUtils.log("Background", "Force sync requested via extension UI");
   
   // Ensure we're not already syncing
   if (isSyncing) {
-    debugLog("Already syncing, waiting for completion");
+    DebugUtils.log("Background", "Already syncing, waiting for completion");
     // Wait for current sync to complete (up to 10 seconds)
     for (let i = 0; i < 10; i++) {
       if (!isSyncing) break;
@@ -848,18 +847,18 @@ async function forceSyncNow() {
     const { pendingAnalytics = [] } = await StorageUtils.get(['pendingAnalytics']);
     
     if (pendingAnalytics.length === 0) {
-      debugLog("No pending analytics to sync");
+      DebugUtils.log("Background", "No pending analytics to sync");
       return { success: true, message: "No pending analytics to sync" };
     }
     
-    debugLog(`Force syncing ${pendingAnalytics.length} pending analytics`);
+    DebugUtils.log("Background", `Force syncing ${pendingAnalytics.length} pending analytics`);
     
     // Call the sync function directly
     await syncPendingAnalytics();
     
     return { success: true, message: `Forced sync completed for ${pendingAnalytics.length} records` };
   } catch (error) {
-    console.error("Force sync error:", error);
+    DebugUtils.error("Background", "Force sync error:", error);
     return { success: false, error: error.message };
   }
 }
@@ -871,7 +870,7 @@ async function forceSyncNow() {
  */
 async function handleTrackFactCheck(data, sendResponse) {
   try {
-    debugLog('handleTrackFactCheck called with data:', {
+    DebugUtils.log("Background", 'handleTrackFactCheck called with data:', {
       textLength: data.textLength,
       domain: data.domain,
       model: data.model
@@ -879,7 +878,7 @@ async function handleTrackFactCheck(data, sendResponse) {
     
     // Get current pending analytics to check if we already have some
     const storageBefore = await StorageUtils.get(['pendingAnalytics']);
-    debugLog(`Current pendingAnalytics count: ${(storageBefore.pendingAnalytics || []).length}`);
+    DebugUtils.log("Background", `Current pendingAnalytics count: ${(storageBefore.pendingAnalytics || []).length}`);
     
     // Add to pending analytics for batch processing
     const pendingAnalytics = storageBefore.pendingAnalytics || [];
@@ -896,31 +895,31 @@ async function handleTrackFactCheck(data, sendResponse) {
     };
     
     pendingAnalytics.push(newAnalyticsItem);
-    debugLog(`Added new item to pendingAnalytics, new count: ${pendingAnalytics.length}`);
+    DebugUtils.log("Background", `Added new item to pendingAnalytics, new count: ${pendingAnalytics.length}`);
     
     // Store the updated list
     await StorageUtils.set({ pendingAnalytics });
-    debugLog('pendingAnalytics saved to storage');
+    DebugUtils.log("Background", 'pendingAnalytics saved to storage');
     
     // Verify that it was actually saved
     const storageAfter = await StorageUtils.get(['pendingAnalytics']);
-    debugLog(`Verification - pendingAnalytics count after save: ${(storageAfter.pendingAnalytics || []).length}`);
+    DebugUtils.log("Background", `Verification - pendingAnalytics count after save: ${(storageAfter.pendingAnalytics || []).length}`);
     
     // If we have enough pending records, trigger a sync
     if (pendingAnalytics.length >= MIN_BATCH_THRESHOLD && !isSyncing) {
-      debugLog(`Reached batch threshold (${pendingAnalytics.length} records), triggering sync`);
+      DebugUtils.log("Background", `Reached batch threshold (${pendingAnalytics.length} records), triggering sync`);
       try {
         syncPendingAnalytics();
       } catch (error) {
-        console.error('Error triggering sync:', error);
+        DebugUtils.error("Background", 'Error triggering sync:', error);
       }
     } else {
-      debugLog(`Not triggering sync yet - ${pendingAnalytics.length}/${MIN_BATCH_THRESHOLD} records needed and isSyncing=${isSyncing}`);
+      DebugUtils.log("Background", `Not triggering sync yet - ${pendingAnalytics.length}/${MIN_BATCH_THRESHOLD} records needed and isSyncing=${isSyncing}`);
     }
     
     sendResponse({ success: true });
   } catch (error) {
-    console.error('Error handling track fact check:', error);
+    DebugUtils.error("Background", 'Error handling track fact check:', error);
     sendResponse({ success: false, error: error.message });
   }
 }
@@ -944,7 +943,7 @@ async function handleTrackFeedback(data, sendResponse) {
     await StorageUtils.set({ pendingFeedback });
     sendResponse({ success: true });
   } catch (error) {
-    console.error('Error handling track feedback:', error);
+    DebugUtils.error("Background", 'Error handling track feedback:', error);
     sendResponse({ success: false, error: error.message });
   }
 }
@@ -956,12 +955,20 @@ self.syncPendingAnalytics = syncPendingAnalytics;
 // Listen for messages from content scripts and options page
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || typeof message !== 'object') {
-    console.error("Received invalid message:", message);
+    DebugUtils.error("Background", "Received invalid message:", message);
     sendResponse({ error: "Invalid message format" });
     return true;
   }
   
-  debugLog("Message received in background:", message.action || "no action specified");
+  DebugUtils.log("Background", "Message received:", message.action || "no action specified");
+  
+  // Add new handler for debug settings
+  if (message.action === 'setDebugEnabled') {
+    DebugUtils.setDebugEnabled(message.enabled);
+    DebugUtils.log("Background", `Debug mode ${message.enabled ? 'enabled' : 'disabled'}`);
+    sendResponse({ success: true });
+    return true;
+  }
   
   // Add new handler for injecting Readability
   if (message.action === 'injectReadability') {
@@ -970,10 +977,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       target: { tabId: sender.tab.id },
       files: ['libs/readability.js']
     }).then(() => {
-      console.log("Readability library injected successfully");
+      DebugUtils.log("Background", "Readability library injected successfully");
       sendResponse({ success: true });
     }).catch(error => {
-      console.error("Error injecting Readability:", error);
+      DebugUtils.error("Background", "Error injecting Readability:", error);
       sendResponse({ success: false, error: error.message });
     });
     
@@ -985,10 +992,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "recordFeedback":
       try {
         AnalyticsService.recordFeedback(message.rating, sender.tab);
-        debugLog("Feedback recorded:", message.rating);
+        DebugUtils.log("Background", "Feedback recorded:", message.rating);
         sendResponse({ success: true });
       } catch (error) {
-        console.error("Error recording feedback:", error);
+        DebugUtils.error("Background", "Error recording feedback:", error);
         sendResponse({ success: false, error: error.message });
       }
       return true;
@@ -1004,7 +1011,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           .then(() => sendResponse({ success: true }))
           .catch(error => sendResponse({ success: false, error: error.message }));
       } catch (error) {
-        console.error("Error triggering manual sync:", error);
+        DebugUtils.error("Background", "Error triggering manual sync:", error);
         sendResponse({ success: false, error: error.message });
       }
       return true; // Keep the messaging channel open for async response
@@ -1049,7 +1056,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true; // Keep the messaging channel open for async response
     
     default:
-      debugLog('Unknown message action:', message.action);
+      DebugUtils.log('Background', 'Unknown message action:', message.action);
       sendResponse({ error: "Unhandled message type" });
       return true;
   }

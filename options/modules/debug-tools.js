@@ -2,6 +2,7 @@
 import { API } from '../../utils/constants.js';
 import { ApiKeyManager } from './api-key-manager.js';
 import { SUPABASE_CONFIG } from '../../utils/supabase-config.js';
+import { DebugUtils } from '../../utils/debug-utils.js';
 
 /**
  * Manages debugging tools for the options page
@@ -12,21 +13,137 @@ export class DebugTools {
     this.analyticsManager = null; // Will be set by options.js
   }
 
-  /**
-   * Set up debugging tools
-   */
-  setupDebugTools() {
-    this.addApiDocButtons();
-    
-    // Wait for DOM to be ready before adding Supabase buttons
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => {
-        this.setupSupabaseDebugButtons();
-      });
-    } else {
-      this.setupSupabaseDebugButtons();
-    }
+/**
+ * Setup debug controls
+ */
+setupDebugControls() {
+  // Try to find the debug tools card
+  const debugToolsCard = document.querySelector('#analytics .card:last-child');
+  if (!debugToolsCard) {
+    DebugUtils.error("DebugTools", "Debug tools card not found");
+    return;
   }
+  
+  // Create a container for the debug toggle
+  const debugToggleContainer = document.createElement('div');
+  debugToggleContainer.style.marginTop = '15px';
+  debugToggleContainer.style.padding = '10px';
+  debugToggleContainer.style.backgroundColor = '#f5f5f5';
+  debugToggleContainer.style.borderRadius = '4px';
+  
+  // Add a heading
+  const heading = document.createElement('h3');
+  heading.textContent = 'Debug Controls';
+  heading.style.marginTop = '0';
+  debugToggleContainer.appendChild(heading);
+  
+  // Create the option row for the debug toggle
+  const optionRow = document.createElement('div');
+  optionRow.className = 'option-row';
+  
+  // Create the label
+  const label = document.createElement('span');
+  label.className = 'option-label';
+  label.textContent = 'Enable debug logging:';
+  
+  // Create the toggle switch
+  const toggleSwitch = document.createElement('label');
+  toggleSwitch.className = 'toggle-switch';
+  
+  // Create the checkbox input
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.id = 'enableDebug';
+  
+  // Get initial debug state
+  chrome.storage.local.get(['debugEnabled'], (result) => {
+    const debugEnabled = result.debugEnabled === true;
+    checkbox.checked = debugEnabled;
+    
+    // Update the debug utility
+    DebugUtils.setDebugEnabled(debugEnabled);
+  });
+  
+  // Handle checkbox changes
+  checkbox.addEventListener('change', (e) => {
+    const enabled = e.target.checked;
+    
+    // Save the setting
+    chrome.storage.local.set({ debugEnabled: enabled });
+    
+    // Update debug utility
+    DebugUtils.setDebugEnabled(enabled);
+    
+    // Send message to background script to update its debug state
+    chrome.runtime.sendMessage({ 
+      action: 'setDebugEnabled', 
+      enabled: enabled 
+    }).catch(err => DebugUtils.error('DebugTools', 'Failed to send debug state message:', err));
+    
+    // Show a message
+    const debugOutput = document.getElementById('debugOutput');
+    if (debugOutput) {
+      debugOutput.style.display = 'block';
+      debugOutput.textContent = `Debug logging ${enabled ? 'enabled' : 'disabled'}.`;
+      
+      // Add extra info if enabled
+      if (enabled) {
+        debugOutput.textContent += '\nCheck the browser console (F12) to see debug output.';
+      }
+    }
+  });
+  
+  // Add the slider to the toggle
+  const slider = document.createElement('span');
+  slider.className = 'slider';
+  
+  // Assemble the toggle
+  toggleSwitch.appendChild(checkbox);
+  toggleSwitch.appendChild(slider);
+  
+  // Add the label and toggle to the option row
+  optionRow.appendChild(label);
+  optionRow.appendChild(toggleSwitch);
+  
+  // Add the option row to the container
+  debugToggleContainer.appendChild(optionRow);
+  
+  // Create a note about debug logging
+  const note = document.createElement('div');
+  note.className = 'note';
+  note.textContent = 'When enabled, debug information will be logged to the browser console (F12). Useful for troubleshooting but may affect performance.';
+  debugToggleContainer.appendChild(note);
+  
+  // Add a button to view the logs
+  const viewLogsButton = document.createElement('button');
+  viewLogsButton.textContent = 'Open Browser Console';
+  viewLogsButton.style.marginTop = '10px';
+  viewLogsButton.style.backgroundColor = '#607D8B';
+  
+  viewLogsButton.addEventListener('click', () => {
+    alert('Please press F12 to open the browser developer tools and view the console.');
+  });
+  
+  debugToggleContainer.appendChild(viewLogsButton);
+  
+  // Add the debug toggle container to the debug tools card
+  debugToolsCard.appendChild(debugToggleContainer);
+}
+
+// Setup debug tools function
+setupDebugTools() {
+  this.addApiDocButtons();
+  this.setupDebugControls(); // Add this line
+  
+  // Wait for DOM to be ready before adding Supabase buttons
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      this.setupSupabaseDebugButtons();
+    });
+  } else {
+    this.setupSupabaseDebugButtons();
+  }
+}
   
   /**
    * Set analytics manager reference
@@ -73,11 +190,11 @@ export class DebugTools {
    */
   setupSupabaseDebugButtons() {
     try {
-      console.log("Setting up Supabase debug buttons");
+      DebugUtils.log("DebugTools", "Setting up Supabase debug buttons");
       
       // Try to find existing buttons first
       if (document.getElementById('testSupabaseBtn') && document.getElementById('checkAnalyticsBtn')) {
-        console.log("Supabase debug buttons already exist");
+        DebugUtils.log("DebugTools", "Supabase debug buttons already exist");
         
         // Add event listeners to existing buttons
         document.getElementById('testSupabaseBtn').addEventListener('click', this.testSupabaseConnection.bind(this));
@@ -88,7 +205,7 @@ export class DebugTools {
       // Find the debug tools card
       const debugToolsCard = document.querySelector('#analytics .card:last-child');
       if (!debugToolsCard) {
-        console.error("Debug tools card not found");
+        DebugUtils.error("DebugTools", "Debug tools card not found");
         return;
       }
       
@@ -118,15 +235,15 @@ export class DebugTools {
       // Add container to the debug tools card
       debugToolsCard.appendChild(supabaseDebugContainer);
       
-      console.log("Adding event listeners to Supabase debug buttons");
+      DebugUtils.log("DebugTools", "Adding event listeners to Supabase debug buttons");
       
       // Add event listeners for the buttons - making sure to bind 'this'
       testSupabaseButton.addEventListener('click', this.testSupabaseConnection.bind(this));
       checkStatusButton.addEventListener('click', this.checkAnalyticsStatus.bind(this));
       
-      console.log("Supabase debug buttons setup complete");
+      DebugUtils.log("DebugTools", "Supabase debug buttons setup complete");
     } catch (error) {
-      console.error("Error setting up Supabase debug buttons:", error);
+      DebugUtils.error("DebugTools", "Error setting up Supabase debug buttons:", error);
     }
   }
 
@@ -134,10 +251,10 @@ export class DebugTools {
    * Test Supabase connection
    */
   async testSupabaseConnection() {
-    console.log("Test Supabase connection clicked");
+    DebugUtils.log("DebugTools", "Test Supabase connection clicked");
     const debugOutput = document.getElementById('debugOutput');
     if (!debugOutput) {
-      console.error("Debug output element not found");
+      DebugUtils.error("DebugTools", "Debug output element not found");
       alert("Debug output element not found");
       return;
     }
@@ -205,7 +322,7 @@ export class DebugTools {
         debugOutput.textContent += `Analytics data will be recorded when fact checks are performed.\n`;
       }
     } catch (error) {
-      console.error("Supabase test error:", error);
+      DebugUtils.error("DebugTools", "Supabase test error:", error);
       debugOutput.textContent += `\nError testing Supabase: ${error.message}\n\n`;
       debugOutput.textContent += `Troubleshooting steps:\n`;
       debugOutput.textContent += `1. Check that your Supabase URL and API key are correct in supabase-config.js\n`;
@@ -219,10 +336,10 @@ export class DebugTools {
    * Check analytics status
    */
   async checkAnalyticsStatus() {
-    console.log("Check analytics status clicked");
+    DebugUtils.log("DebugTools", "Check analytics status clicked");
     const debugOutput = document.getElementById('debugOutput');
     if (!debugOutput) {
-      console.error("Debug output element not found");
+      DebugUtils.error("DebugTools", "Debug output element not found");
       alert("Debug output element not found");
       return;
     }
@@ -275,7 +392,7 @@ export class DebugTools {
       
       debugOutput.textContent = statusReport;
     } catch (error) {
-      console.error("Error checking analytics status:", error);
+      DebugUtils.error("DebugTools", "Error checking analytics status:", error);
       debugOutput.textContent += `\nError checking analytics status: ${error.message}\n`;
     }
   }
@@ -342,7 +459,7 @@ export class DebugTools {
       
     } catch (error) {
       debugOutput.textContent += `\nError during testing: ${error.message}\n`;
-      console.error('Debug error:', error);
+      DebugUtils.error("DebugTools", "Debug error:", error);
     }
   }
 
@@ -460,7 +577,7 @@ export class DebugTools {
       debugOutput.textContent = debugInfo;
     } catch (error) {
       debugOutput.textContent = `Error retrieving debug info: ${error.message}`;
-      console.error('Debug error:', error);
+      DebugUtils.error("DebugTools", "Debug error:", error);
     }
   }
   
