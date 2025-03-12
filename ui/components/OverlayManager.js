@@ -170,8 +170,31 @@ export class OverlayManager {
     this._setupFocusTrap(overlay);
   }
   
+  // Updated _extractRatingInfo method for the OverlayManager class
   _extractRatingInfo(result) {
-    // Extract the numeric rating and confidence level
+    // First look for a rating in the Verdict section (most authoritative)
+    const verdictSection = result.match(/Verdict:[\s\S]*?Score:?\s*(\d+(\.\d+)?)/i);
+    const verdictRating = verdictSection ? parseFloat(verdictSection[1]) : null;
+    
+    // If we found a verdict rating, use it as our primary source
+    if (verdictRating !== null) {
+      // Get confidence level from the full result
+      const confidenceMatch = result.match(/Confidence Level:\s*(High|Moderate|Low)/i);
+      const confidenceLevel = confidenceMatch ? confidenceMatch[1] : "Moderate";
+      
+      // Remove rating from result that will be displayed since it's already in the gauge
+      let formattedResult = result;
+      
+      // Format the result by removing rating information that will be displayed visually
+      formattedResult = result
+        .replace(/Rating:\s*\d+(\.\d+)?/i, "")
+        .replace(/Confidence Level:.+?(?=\n|$)/i, "")
+        .trim();
+      
+      return { numericRating: verdictRating, confidenceLevel, formattedResult };
+    }
+    
+    // Fallback: Extract the general rating if no verdict-specific rating is found
     const ratingMatch = result.match(/Rating:\s*(\d+(\.\d+)?)/i);
     const confidenceMatch = result.match(/Confidence Level:\s*(High|Moderate|Low)/i);
     
