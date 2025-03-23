@@ -1,23 +1,27 @@
-// api/openai.js - Updated to use o3-mini instead of gpt-3.5-turbo
+// api/anthropic.js
 import { RequestQueueManager } from '../utils/requestQueue.js';
 import { REQUEST, API, CACHE, CONTENT } from '../utils/constants.js';
 
-export class OpenAIService {
+export class AnthropicService {
   constructor(apiKey) {
+    console.log(`AnthropicService initialized with API key: ${apiKey ? 'PRESENT' : 'MISSING'}`);
+    
     this.apiKey = apiKey;
     this.cache = {};
     this.cacheHits = 0;
     this.cacheMisses = 0;
     this.maxCacheSize = CACHE.MAX_SIZE;
     
-    // Initialize request queue manager
-    this.requestQueue = new RequestQueueManager({
-      baseBackoff: REQUEST.BACKOFF.OPENAI.INITIAL,
-      maxBackoff: REQUEST.BACKOFF.OPENAI.MAX,
-      backoffFactor: REQUEST.BACKOFF.OPENAI.FACTOR,
-      rateLimitPerMinute: REQUEST.RATE_LIMITS.OPENAI,
+    // Initialize request queue manager with rate limits
+    const anthropicRequestSettings = {
+      baseBackoff: REQUEST.BACKOFF.ANTHROPIC?.INITIAL || 1000,
+      maxBackoff: REQUEST.BACKOFF.ANTHROPIC?.MAX || 15000,
+      backoffFactor: REQUEST.BACKOFF.ANTHROPIC?.FACTOR || 2,
+      rateLimitPerMinute: REQUEST.RATE_LIMITS.ANTHROPIC || REQUEST.RATE_LIMITS.DEFAULT,
       processRequestCallback: this._processRequest.bind(this)
-    });
+    };
+    
+    this.requestQueue = new RequestQueueManager(anthropicRequestSettings);
   }
 
   setRateLimit(limit) {
@@ -68,38 +72,60 @@ export class OpenAIService {
     const maxTokensInt = parseInt(maxTokens, 10);
     
     // Log for debugging
-    console.log(`Making OpenAI API request with model: ${model}, max_tokens: ${maxTokensInt}`);
+    console.log(`Making Anthropic API request with model: ${model}, max_tokens: ${maxTokensInt}`);
+    
+    // Map OpenAI-style model names to Anthropic models if needed
+    const actualModel = this._getActualModel(model);
     
     const requestBody = {
-      model: model,
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: maxTokensInt, // Now passing as integer
-      temperature: 0.3
+      model: actualModel,
+      max_tokens: maxTokensInt,
+      temperature: 0.3,
+      messages: [
+        { role: "user", content: prompt }
+      ]
     };
     
-    const response = await fetch(API.OPENAI.BASE_URL, {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`
+        'x-api-key': this.apiKey,
+        'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify(requestBody)
     });
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      const error = new Error(`OpenAI API error (${response.status}): ${errorData.error?.message || response.statusText}`);
+      const error = new Error(`Anthropic API error (${response.status}): ${errorData.error?.message || response.statusText}`);
       error.status = response.status;
       throw error;
     }
     
     const data = await response.json();
-    return data.choices && data.choices[0] && data.choices[0].message
-      ? data.choices[0].message.content.trim()
-      : 'No result.';
+    
+    // Extract text content from Anthropic's response format
+    if (data.content && data.content[0] && data.content[0].type === 'text') {
+      return data.content[0].text.trim();
+    } else {
+      return 'No result.';
+    }
   }
 
-  async callWithCache(prompt, model = "gpt-4o-mini", maxTokens = CONTENT.MAX_TOKENS.DEFAULT, enableCaching = true) {
+  // Map model names if needed (for compatibility with existing code)
+  _getActualModel(model) {
+    // Map OpenAI model names to Claude equivalents if needed
+    const modelMap = {
+      'gpt-4o-mini': 'claude-3-5-haiku-20240307',  // Economical option
+      'o3-mini': 'claude-3-5-sonnet-20240229',     // Premium option
+      'hybrid': 'claude-3-7-sonnet-20250219'       // Highest accuracy model
+    };
+    
+    return modelMap[model] || model;
+  }
+
+  async callWithCache(prompt, model = "claude-3-5-sonnet-20240229", maxTokens = CONTENT.MAX_TOKENS.DEFAULT, enableCaching = true) {
     if (enableCaching) {
       // Check cache first
       const key = await this.getCacheKey(prompt + model);
@@ -116,7 +142,7 @@ export class OpenAIService {
     const result = await this.requestQueue.enqueueRequest({ 
       prompt, 
       model, 
-      maxTokens: parseInt(maxTokens, 10) // Ensure maxTokens is an integer here too
+      maxTokens: parseInt(maxTokens, 10)
     });
     
     // Store in cache with timestamp if caching is enabled
@@ -134,7 +160,7 @@ export class OpenAIService {
     return result;
   }
 
-  async extractSearchQuery(text, model = 'gpt-4o-mini') {
+  async extractSearchQuery(text, model = 'claude-3-5-haiku-20240307') {
     let queryText = text;
     
     // Only process if text is long
@@ -148,10 +174,10 @@ export class OpenAIService {
           "${text.substring(0, 2000)}"
         `;
         
-        // Use gpt-4o-mini for extraction to save costs
+        // Always use a fast model for extraction to save costs
         const claimsResponse = await this.callWithCache(
           claimExtractionPrompt, 
-          'gpt-4o-mini',
+          'claude-3-5-haiku-20240307',
           CONTENT.MAX_TOKENS.CLAIM_EXTRACTION,
           true  // Always enable caching for extraction
         );

@@ -1,41 +1,51 @@
 // utils/constants.js
 
-// API Configuration
+// API Configuration - Add Anthropic section
 export const API = {
+  BRAVE: {
+    BASE_URL: 'https://api.search.brave.com/res/v1/web/search',
+    RESULTS_COUNT: 2
+  },
+  OPENAI: {
+    BASE_URL: 'https://api.openai.com/v1/chat/completions'
+  },
+  ANTHROPIC: {
+    BASE_URL: 'https://api.anthropic.com/v1/messages',
+    VERSION: '2023-06-01'
+  }
+};
+
+// Request Handling - Add Anthropic backoff and rate limits
+export const REQUEST = {
+  BACKOFF: {
     BRAVE: {
-      BASE_URL: 'https://api.search.brave.com/res/v1/web/search',
-      RESULTS_COUNT: 2
+      INITIAL: 500,
+      MAX: 5000,
+      FACTOR: 1.5
     },
     OPENAI: {
-      BASE_URL: 'https://api.openai.com/v1/chat/completions'
+      INITIAL: 1000,
+      MAX: 15000,
+      FACTOR: 2
+    },
+    ANTHROPIC: {
+      INITIAL: 1000,
+      MAX: 15000,
+      FACTOR: 2
     }
-  };
-  
-  // Request Handling
-  export const REQUEST = {
-    BACKOFF: {
-      BRAVE: {
-        INITIAL: 500,
-        MAX: 5000,
-        FACTOR: 1.5
-      },
-      OPENAI: {
-        INITIAL: 1000,
-        MAX: 15000,
-        FACTOR: 2
-      }
-    },
-    RATE_LIMITS: {
-      DEFAULT: 5,
-      OPENAI: 5
-    },
-    TIMEOUT: {
-      RESPONSE_HANDLER: 30000 // 30 seconds
-    },
-    RETRY: {
-      MAX_ATTEMPTS: 3
-    }
-  };
+  },
+  RATE_LIMITS: {
+    DEFAULT: 5,
+    OPENAI: 5,
+    ANTHROPIC: 5 // Same default rate limit as OpenAI
+  },
+  TIMEOUT: {
+    RESPONSE_HANDLER: 30000 // 30 seconds
+  },
+  RETRY: {
+    MAX_ATTEMPTS: 3
+  }
+};
   
   // UI Styling
   export const STYLES = {

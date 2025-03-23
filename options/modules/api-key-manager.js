@@ -131,6 +131,55 @@ export class ApiKeyManager {
   }
 
   /**
+   * Test the Anthropic API key
+   */
+  async testAnthropicKey() {
+    const inputField = document.getElementById('anthropicApiKey');
+    let apiKey = inputField.dataset.fullKey || inputField.value.trim();
+    
+    const errorDiv = document.getElementById('anthropic-error');
+    const testButton = document.getElementById('testAnthropic');
+    
+    testButton.textContent = 'TESTING...';
+    testButton.disabled = true;
+    errorDiv.style.display = 'none';
+    
+    try {
+      // Use the extension's background script for the API call
+      const response = await chrome.runtime.sendMessage({
+        action: 'testAnthropicKey',
+        apiKey: apiKey
+      });
+      
+      if (response.success) {
+        errorDiv.style.display = 'block';
+        errorDiv.style.backgroundColor = '#E8F5E9';
+        errorDiv.style.color = STYLES.COLORS.LIGHT.SUCCESS;
+        errorDiv.textContent = '✓ Anthropic API key is valid';
+        
+        chrome.storage.sync.set({ anthropicApiKey: apiKey });
+        
+        setTimeout(() => {
+          errorDiv.style.display = 'none';
+        }, 3000);
+      } else {
+        errorDiv.style.display = 'block';
+        errorDiv.style.backgroundColor = '#FFEBEE';
+        errorDiv.style.color = STYLES.COLORS.LIGHT.ERROR;
+        errorDiv.textContent = `✗ Error: ${response.error || 'Invalid API key'}`;
+      }
+    } catch (error) {
+      errorDiv.style.display = 'block';
+      errorDiv.style.backgroundColor = '#FFEBEE';
+      errorDiv.style.color = STYLES.COLORS.LIGHT.ERROR;
+      errorDiv.textContent = `✗ Error: ${error.message || 'Connection failed'}`;
+    } finally {
+      testButton.textContent = 'TEST';
+      testButton.disabled = false;
+    }
+  }
+
+  /**
    * Test the Brave API key
    */
   async testBraveKey() {
@@ -287,6 +336,33 @@ export class ApiKeyManager {
     return { valid: true, sanitizedKey };
   }
 
+  /**
+   * Validate Anthropic API key format
+   * @param {string} key - The API key to validate
+   * @returns {Object} Validation result with valid flag and message
+   */
+  validateAnthropicKey(key) {
+    // Basic validation for Anthropic API key format
+    if (!key || typeof key !== 'string') {
+      return { valid: false, message: "API key is missing" };
+    }
+    
+    // Sanitize the key
+    const sanitizedKey = this.sanitizeApiKey(key);
+    
+    // Check format - Anthropic keys generally start with "sk-ant-"
+    if (!sanitizedKey.startsWith('sk-ant-')) {
+      return { valid: false, message: "Anthropic API key should start with 'sk-ant-'" };
+    }
+    
+    // Check length (typical Anthropic keys are fairly long)
+    if (sanitizedKey.length < 30) {
+      return { valid: false, message: "Anthropic API key appears to be truncated or incomplete" };
+    }
+    
+    return { valid: true, sanitizedKey };
+  }
+  
   /**
    * Validate Brave API key format
    * @param {string} key - The API key to validate

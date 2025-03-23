@@ -22,6 +22,7 @@ window.getVersionManager = () => versionManager;
 document.addEventListener('DOMContentLoaded', async () => {
   try {
     console.log("DOM content loaded, initializing options page");
+    setupProviderChangeHandler();
     
     // 1. First, initialize the UI manager and set up tabs
     console.log("Setting up UI manager");
@@ -37,6 +38,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log("Setting up settings manager");
     const settingsManager = new SettingsManager();
     await settingsManager.loadSettings();
+    setupProviderChangeHandler();
     
     // 4. Initialize API key manager
     console.log("Setting up API key manager");
@@ -124,6 +126,40 @@ async function initializeSupabase(analyticsManager) {
   }
 }
 
+function setupProviderChangeHandler() {
+  const providerSelect = document.getElementById('aiProvider');
+  const modelSelect = document.getElementById('aiModel');
+  
+  if (!providerSelect || !modelSelect) return;
+  
+  function updateModelOptions() {
+    const selectedProvider = providerSelect.value;
+    let firstOptionFound = false;
+    
+    // Show/hide options based on provider
+    Array.from(modelSelect.options).forEach(option => {
+      const optionProvider = option.getAttribute('data-provider');
+      const shouldShow = optionProvider === selectedProvider;
+      
+      option.style.display = shouldShow ? '' : 'none';
+      
+      // Select the first available option if current selection is hidden
+      if (shouldShow && !firstOptionFound) {
+        firstOptionFound = true;
+        if (modelSelect.selectedOptions[0].style.display === 'none') {
+          modelSelect.value = option.value;
+        }
+      }
+    });
+  }
+  
+  // Handle provider change
+  providerSelect.addEventListener('change', updateModelOptions);
+  
+  // Initial setup
+  updateModelOptions();
+}
+
 // Set up global event listeners
 function setupEventListeners(settingsManager, apiKeyManager, analyticsManager, debugTools, versionManager) {
   console.log("Setting up event listeners");
@@ -144,6 +180,10 @@ function setupEventListeners(settingsManager, apiKeyManager, analyticsManager, d
   // API key testing
   document.getElementById('testOpenAI')?.addEventListener('click', () => apiKeyManager.testOpenAIKey());
   document.getElementById('testBrave')?.addEventListener('click', () => apiKeyManager.testBraveKey());
+  document.getElementById('testAnthropic')?.addEventListener('click', () => {
+    console.log("Anthropic test button clicked");
+    apiKeyManager.testAnthropicKey();
+  });
   
   // Analytics management
   document.getElementById('clearData')?.addEventListener('click', () => analyticsManager.clearStoredData());
@@ -160,7 +200,15 @@ function setupEventListeners(settingsManager, apiKeyManager, analyticsManager, d
       versionManager.refreshVersionInfo();
     }
   });
-  
+
+  // Add test button event handler for Anthropic
+  function setupAnthropicTestButton() {
+    const testButton = document.getElementById('testAnthropic');
+    if (testButton) {
+      testButton.addEventListener('click', () => apiKeyManager.testAnthropicKey());
+    }
+  }
+
   // Accessibility help
   document.getElementById('showAccessibilityHelp')?.addEventListener('click', () => AccessibilityHelper.showAccessibilityHelp());
   

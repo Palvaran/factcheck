@@ -13,6 +13,7 @@ export class SettingsManager {
     
     // Default settings with constants
     this.defaultSettings = {
+      aiProvider: 'openai',
       aiModel: 'gpt-4o-mini',
       useMultiModel: false,
       autoCheckHeadlines: false,
@@ -40,7 +41,10 @@ export class SettingsManager {
       chrome.storage.sync.get([
         // API Keys
         'openaiApiKey', 
-        'braveApiKey', 
+        'braveApiKey',
+        'anthropicApiKey',
+        // AI Provider
+        'aiProvider',
         // Preferences
         'aiModel',
         'useMultiModel',
@@ -78,6 +82,7 @@ export class SettingsManager {
     // API Keys - Apply masking unless user is editing
     const openaiField = document.getElementById('openaiApiKey');
     const braveField = document.getElementById('braveApiKey');
+    const anthropicField = document.getElementById('anthropicApiKey');
     
     if (openaiField) {
       // Apply masking to OpenAI key
@@ -87,6 +92,17 @@ export class SettingsManager {
         openaiField.setAttribute('aria-label', 'OpenAI API Key (masked for security)');
       } else if (!data.openaiApiKey) {
         openaiField.value = '';
+      }
+    }
+
+    if (anthropicField) {
+      // Apply masking to Anthropic key
+      if (data.anthropicApiKey && !this.modifiedFields.has('anthropicApiKey')) {
+        anthropicField.dataset.fullKey = data.anthropicApiKey; // Store full key in data attribute
+        anthropicField.value = this.apiKeyManager.maskApiKey(data.anthropicApiKey);
+        anthropicField.setAttribute('aria-label', 'Anthropic API Key (masked for security)');
+      } else if (!data.anthropicApiKey) {
+        anthropicField.value = '';
       }
     }
     
@@ -108,6 +124,7 @@ export class SettingsManager {
     this.setCheckboxValue('enhancedUI', data.enhancedUI, this.defaultSettings.enhancedUI);
     this.setSelectValue('resultPosition', data.resultPosition, this.defaultSettings.resultPosition);
     this.setSelectValue('colorTheme', data.colorTheme, this.defaultSettings.colorTheme);
+    this.setSelectValue('aiProvider', data.aiProvider, this.defaultSettings.aiProvider);
     
     // Analytics
     this.setCheckboxValue('shareAnalytics', data.shareAnalytics, this.defaultSettings.shareAnalytics);
@@ -132,6 +149,8 @@ export class SettingsManager {
       // API Keys - Using the ApiKeyManager to handle masked fields
       openaiApiKey: this.apiKeyManager.getFieldValue('openaiApiKey'),
       braveApiKey: this.apiKeyManager.getFieldValue('braveApiKey'),
+      anthropicApiKey: this.apiKeyManager.getFieldValue('anthropicApiKey'),
+      aiProvider: this.getElementValue('aiProvider'),
       
       // Preferences
       aiModel: this.getElementValue('aiModel'),

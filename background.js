@@ -8,6 +8,7 @@ import { BraveSearchService } from './api/brave.js';
 import { SupabaseClient } from './options/modules/supabase-client.js';
 import { SUPABASE_CONFIG } from './utils/supabase-config.js';
 import { API, REQUEST, CONTENT, CACHE, STYLES, DOMAINS } from './utils/constants.js';
+import { AnthropicService } from './api/anthropic.js';
 
 // Global debug flag - set to false for production
 const DEBUG = false;
@@ -101,6 +102,7 @@ function setupContextMenus() {
 async function initializeDefaultSettings() {
   try {
     const settings = await StorageUtils.get([
+      'aiProvider', // Add this
       'aiModel', 
       'useMultiModel', 
       'maxTokens', 
@@ -108,10 +110,12 @@ async function initializeDefaultSettings() {
       'rateLimit',
       'openaiApiKey',
       'braveApiKey',
+      'anthropicApiKey', // Add this
       'shareAnalytics'
     ]);
     
     DebugUtils.log("Background", "Current settings loaded:", {
+      aiProvider: settings.aiProvider, // Add this
       aiModel: settings.aiModel,
       useMultiModel: settings.useMultiModel,
       maxTokens: settings.maxTokens,
@@ -119,6 +123,7 @@ async function initializeDefaultSettings() {
       rateLimit: settings.rateLimit,
       hasOpenAIKey: !!settings.openaiApiKey,
       hasBraveKey: !!settings.braveApiKey,
+      hasAnthropicKey: !!settings.anthropicApiKey, // Add this
       shareAnalytics: settings.shareAnalytics !== false
     });
     
@@ -126,6 +131,7 @@ async function initializeDefaultSettings() {
     if (!settings.aiModel) {
       DebugUtils.log("Background", "Setting default settings");
       await StorageUtils.set({
+        aiProvider: 'openai', // Add this
         aiModel: 'gpt-4o-mini',
         useMultiModel: false,
         maxTokens: CONTENT.MAX_TOKENS.DEFAULT,
@@ -209,19 +215,33 @@ async function isContentScriptResponding(tabId) {
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   DebugUtils.log("Background", "Context menu clicked:", info.menuItemId);
   try {
-    const { openaiApiKey, braveApiKey } = await StorageUtils.get(['openaiApiKey', 'braveApiKey']);
-    DebugUtils.log("Background", "API keys present:", !!openaiApiKey, !!braveApiKey);
+    // Get all API keys and provider setting
+    const { openaiApiKey, braveApiKey, anthropicApiKey, aiProvider } = 
+      await StorageUtils.get(['openaiApiKey', 'braveApiKey', 'anthropicApiKey', 'aiProvider']);
     
-    if (!openaiApiKey) {
-      DebugUtils.error("Background", "Missing OpenAI API key");
-      await executeScript(tab.id, () => alert('Please set your OpenAI API key in the extension options.'));
+    DebugUtils.log("Background", "API keys present:", 
+                  !!openaiApiKey, !!braveApiKey, !!anthropicApiKey);
+    DebugUtils.log("Background", "AI provider:", aiProvider);
+    
+    // Determine which API key to check based on provider
+    let requiredKey = openaiApiKey;
+    let keyName = 'OpenAI API key';
+    
+    if (aiProvider === 'anthropic') {
+      requiredKey = anthropicApiKey;
+      keyName = 'Anthropic API key';
+    }
+    
+    if (!requiredKey) {
+      DebugUtils.error("Background", `Missing ${keyName}`);
+      await executeScript(tab.id, () => alert(`Please set your ${keyName} in the extension options.`));
       return;
     }
 
     if (info.menuItemId === 'factCheckPage') {
-      await handlePageCheck(tab, openaiApiKey, braveApiKey);
+      await handlePageCheck(tab, openaiApiKey, braveApiKey, anthropicApiKey, aiProvider);
     } else {
-      await handleSelectionCheck(info.selectionText, tab, openaiApiKey, braveApiKey);
+      await handleSelectionCheck(info.selectionText, tab, openaiApiKey, braveApiKey, anthropicApiKey, aiProvider);
     }
   } catch (error) {
     DebugUtils.error("Background", "Context menu handler error:", error);
@@ -230,7 +250,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 });
 
 // Handle checking an entire page
-async function handlePageCheck(tab, openaiApiKey, braveApiKey) {
+async function handlePageCheck(tab, openaiApiKey, braveApiKey, anthropicApiKey, aiProvider) {
   DebugUtils.log("Background", `Starting page check for tab ${tab.id}: ${tab.url}`);
   try {
     // Ensure content script is loaded (now includes delay)
@@ -241,7 +261,7 @@ async function handlePageCheck(tab, openaiApiKey, braveApiKey) {
     DebugUtils.log("Background", "Article text response received:", response ? "yes" : "no");
     
     if (response && response.articleText) {
-      await processFactCheck(response.articleText, openaiApiKey, braveApiKey, tab);
+      await processFactCheck(response.articleText, openaiApiKey, braveApiKey, anthropicApiKey, aiProvider, tab);
     } else {
       DebugUtils.error("Background", "No article text extracted");
       await executeScript(tab.id, () => alert('Could not extract article text.'));
@@ -253,21 +273,34 @@ async function handlePageCheck(tab, openaiApiKey, braveApiKey) {
 }
 
 // Handle checking selected text
-async function handleSelectionCheck(text, tab, openaiApiKey, braveApiKey) {
+async function handleSelectionCheck(text, tab, openaiApiKey, braveApiKey, anthropicApiKey, aiProvider) {
   DebugUtils.log("Background", `Starting selection check with ${text.length} characters of text`);
-  await processFactCheck(text, openaiApiKey, braveApiKey, tab);
+  await processFactCheck(text, openaiApiKey, braveApiKey, anthropicApiKey, aiProvider, tab);
 }
 
 // Extension icon click handler
 chrome.action.onClicked.addListener(async (tab) => {
   DebugUtils.log("Background", "Extension icon clicked");
   try {
-    const { openaiApiKey, braveApiKey } = await StorageUtils.get(['openaiApiKey', 'braveApiKey']);
-    DebugUtils.log("Background", "API keys present:", !!openaiApiKey, !!braveApiKey);
+    const { openaiApiKey, braveApiKey, anthropicApiKey, aiProvider } = 
+      await StorageUtils.get(['openaiApiKey', 'braveApiKey', 'anthropicApiKey', 'aiProvider']);
     
-    if (!openaiApiKey) {
-      DebugUtils.error("Background", "Missing OpenAI API key");
-      await executeScript(tab.id, () => alert('Please set your OpenAI API key in the extension options.'));
+    // Determine which API key to check based on provider
+    let requiredKey = openaiApiKey;
+    let keyName = 'OpenAI API key';
+    
+    if (aiProvider === 'anthropic') {
+      requiredKey = anthropicApiKey;
+      keyName = 'Anthropic API key';
+    }
+    
+    DebugUtils.log("Background", "API keys present:", 
+                  !!openaiApiKey, !!braveApiKey, !!anthropicApiKey);
+    DebugUtils.log("Background", "AI provider:", aiProvider);
+    
+    if (!requiredKey) {
+      DebugUtils.error("Background", `Missing ${keyName}`);
+      await executeScript(tab.id, () => alert(`Please set your ${keyName} in the extension options.`));
       return;
     }
 
@@ -282,9 +315,9 @@ chrome.action.onClicked.addListener(async (tab) => {
 
     DebugUtils.log("Background", "Selected text:", selectedText ? "found" : "none");
     if (selectedText && selectedText.trim().length > 0) {
-      await processFactCheck(selectedText, openaiApiKey, braveApiKey, tab);
+      await processFactCheck(selectedText, openaiApiKey, braveApiKey, anthropicApiKey, aiProvider, tab);
     } else {
-      await handlePageCheck(tab, openaiApiKey, braveApiKey);
+      await handlePageCheck(tab, openaiApiKey, braveApiKey, anthropicApiKey, aiProvider);
     }
   } catch (error) {
     DebugUtils.error("Background", "Error handling extension click:", error);
@@ -292,8 +325,9 @@ chrome.action.onClicked.addListener(async (tab) => {
 });
 
 // Main fact-check processing function
-async function processFactCheck(text, openaiApiKey, braveApiKey, tab) {
+async function processFactCheck(text, openaiApiKey, braveApiKey, anthropicApiKey, aiProvider, tab) {
   DebugUtils.log("Background", "Starting fact check process with text length:", text.length);
+  DebugUtils.log("Background", "Using AI provider:", aiProvider);
   
   // Ensure content script is loaded before showing overlay (now includes delay)
   const contentInjected = await ensureContentScriptLoaded(tab.id);
@@ -306,6 +340,7 @@ async function processFactCheck(text, openaiApiKey, braveApiKey, tab) {
   try {
     // Get settings
     const settings = await StorageUtils.get([
+      'aiProvider',
       'aiModel', 
       'useMultiModel', 
       'maxTokens', 
@@ -315,9 +350,21 @@ async function processFactCheck(text, openaiApiKey, braveApiKey, tab) {
     
     DebugUtils.log("Background", "Settings retrieved");
     
-    // Create fact checker service
-    DebugUtils.log("Background", "Creating fact checker with API keys available:", !!openaiApiKey, !!braveApiKey);
-    const factChecker = new FactCheckerService(openaiApiKey, braveApiKey, settings);
+    // Create the appropriate AI service based on the provider setting
+    let aiService;
+    if (settings.aiProvider === 'anthropic' && anthropicApiKey) {
+      DebugUtils.log("Background", "Creating Anthropic service");
+      aiService = new AnthropicService(anthropicApiKey);
+    } else {
+      DebugUtils.log("Background", "Creating OpenAI service");
+      aiService = new OpenAIService(openaiApiKey);
+    }
+    
+    // Create fact checker service with AI service and settings
+    DebugUtils.log("Background", "Creating fact checker with AI service and Brave API available:", 
+                  !!aiService, !!braveApiKey);
+    
+    const factChecker = new FactCheckerService(aiService, braveApiKey, settings);
     
     // Get article metadata if available
     let sourceMetadata = {};
@@ -970,6 +1017,32 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   
+  if (message.action === 'testAnthropicKey') {
+    (async () => {
+      try {
+        const response = await fetch('https://api.anthropic.com/v1/models', {
+          headers: {
+            'x-api-key': message.apiKey,
+            'anthropic-version': '2023-06-01'
+          }
+        });
+        
+        if (response.ok) {
+          sendResponse({ success: true });
+        } else {
+          const data = await response.json();
+          sendResponse({ 
+            success: false, 
+            error: data.error?.message || `API error: ${response.status}`
+          });
+        }
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+    return true; // Keep the message channel open
+  }
+
   // Add new handler for injecting Readability
   if (message.action === 'injectReadability') {
     // Do the injection using executeScript

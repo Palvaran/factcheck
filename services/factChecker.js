@@ -1,5 +1,4 @@
-// services/factChecker.js - Updated with progress indicator support
-import { OpenAIService } from '../api/openai.js';
+// services/factChecker.js - Updated to support both OpenAI and Anthropic
 import { BraveSearchService } from '../api/brave.js';
 import { CONTENT, DOMAINS } from '../utils/constants.js';
 
@@ -12,8 +11,9 @@ function debugLog(...args) {
 }
 
 export class FactCheckerService {
-  constructor(openaiApiKey, braveApiKey, settings = {}) {
+  constructor(aiService, braveApiKey, settings = {}) {
     debugLog("Initializing FactCheckerService with settings:", {
+      provider: settings.aiProvider || 'openai',
       model: settings.aiModel || 'gpt-4o-mini',
       multiModel: settings.useMultiModel !== false,
       tokens: settings.maxTokens || CONTENT.MAX_TOKENS.DEFAULT,
@@ -21,23 +21,10 @@ export class FactCheckerService {
       rateLimit: settings.rateLimit || 5
     });
     
-    debugLog("OpenAI API key present:", !!openaiApiKey);
+    debugLog("AI service available:", !!aiService);
     debugLog("Brave API key present:", !!braveApiKey);
     
-    // Print the first and last 3 characters of the API keys for debugging
-    if (openaiApiKey) {
-      const firstChars = openaiApiKey.substring(0, 3);
-      const lastChars = openaiApiKey.substring(openaiApiKey.length - 3);
-      debugLog(`OpenAI key format: ${firstChars}...${lastChars}`);
-    }
-    
-    if (braveApiKey) {
-      const firstChars = braveApiKey.substring(0, 3);
-      const lastChars = braveApiKey.substring(braveApiKey.length - 3);
-      debugLog(`Brave key format: ${firstChars}...${lastChars}`);
-    }
-    
-    this.openaiService = new OpenAIService(openaiApiKey);
+    this.aiService = aiService; // Either OpenAIService or AnthropicService
     this.braveService = braveApiKey ? new BraveSearchService(braveApiKey) : null;
     debugLog("BraveSearchService available:", !!this.braveService);
     
@@ -57,6 +44,7 @@ export class FactCheckerService {
     
     // Set defaults if settings are missing
     this.settings = {
+      aiProvider: settings.aiProvider || 'openai',
       aiModel: settings.aiModel || 'gpt-4o-mini',
       useMultiModel: settings.useMultiModel !== false,
       maxTokens: settings.maxTokens || CONTENT.MAX_TOKENS.DEFAULT,
@@ -65,7 +53,9 @@ export class FactCheckerService {
     };
     
     // Update rate limit setting
-    this.openaiService.setRateLimit(this.settings.rateLimit);
+    if (this.aiService.setRateLimit) {
+      this.aiService.setRateLimit(this.settings.rateLimit);
+    }
     
     // Keep track of ongoing check operations
     this.pendingChecks = new Map();
@@ -130,7 +120,7 @@ export class FactCheckerService {
       // Signal the query generation step
       await this._updateProgress('query');
       
-      const queryText = await this.openaiService.extractSearchQuery(text, this.settings.aiModel);
+      const queryText = await this.aiService.extractSearchQuery(text, this.settings.aiModel);
       debugLog("Query extracted, length:", queryText.length);  
       
       // Verify if Brave service is available
@@ -194,7 +184,10 @@ export class FactCheckerService {
       }
       
       // Determine which model to use based on settings
-      const analysisModel = this.settings.aiModel === 'hybrid' ? 'gpt-4o-mini' : this.settings.aiModel;
+      const analysisModel = this.settings.aiModel === 'hybrid' ? 
+        (this.settings.aiProvider === 'anthropic' ? 'claude-3-opus-20240229' : 'gpt-4o-mini') : 
+        this.settings.aiModel;
+      
       debugLog(`Using ${analysisModel} for analysis`);
       
       // Signal the analysis step
@@ -240,11 +233,11 @@ export class FactCheckerService {
       // Combine results and references
       const combinedResult = factCheckResult + referencesHTML;
       
-      // IMPORTANT: Return all three values in a consistent object
+      // Return all three values in a consistent object
       return { 
         result: combinedResult, 
         queryText, 
-        rating // Make sure this is included
+        rating
       };
     } catch (error) {
       console.error("Critical error in factCheck:", error);
@@ -260,7 +253,7 @@ export class FactCheckerService {
         return { 
           result: `Error: ${error.message} - Please try again later or check your API keys.`, 
           queryText: text.substring(0, 100),
-          rating: null // Include null rating
+          rating: null 
         };
       }
     }
@@ -349,16 +342,16 @@ FORMAT YOUR RESPONSE WITH THESE HEADERS:
       const prompt = this.buildPrompt(text, searchContext, today, !!searchContext);
       debugLog("Prompt built, length:", prompt.length);
       
-      // Call OpenAI API with the selected model
-      debugLog(`Calling OpenAI API with model: ${model}`);
-      const result = await this.openaiService.callWithCache(
+      // Call AI API with the selected model
+      debugLog(`Calling AI API with model: ${model}`);
+      const result = await this.aiService.callWithCache(
         prompt, 
         model,
         this.settings.maxTokens,
         this.settings.enableCaching
       );
       
-      debugLog("OpenAI response received, length:", result.length);
+      debugLog("AI response received, length:", result.length);
       return result;
     } catch (error) {
       console.error("Single model fact check error:", error);
@@ -367,7 +360,13 @@ FORMAT YOUR RESPONSE WITH THESE HEADERS:
   }
 
   async performMultiModelFactCheck(text, searchContext, today, primaryModel) {
-    debugLog("Starting multi-model fact check with primary model:", primaryModel);
+    debugLog("Starting multi-model approach with primary model:", primaryModel);
+    
+    // Choose appropriate secondary model based on provider
+    const secondaryModel = this.settings.aiProvider === 'anthropic' 
+      ? 'claude-3-haiku-20240307'  // Use Haiku for Anthropic
+      : 'gpt-4o-mini';            // Use GPT-4o-mini for OpenAI
+    
     // Define different prompt types
     const promptTypes = [
       {
@@ -382,7 +381,7 @@ FORMAT YOUR RESPONSE WITH THESE HEADERS:
         prompt: `Analyze the internal logical consistency of the following statement: "${text}". 
         Identify if there are any contradictions or logical fallacies. 
         Provide a numeric consistency rating from 0-100 and brief explanation.`,
-        model: "gpt-4o-mini" // Always use 4o for second opinion to save costs
+        model: secondaryModel
       }
     ];
 
@@ -407,7 +406,7 @@ FORMAT YOUR RESPONSE WITH THESE HEADERS:
         
         debugLog(`Sending ${promptType.name} prompt to ${promptType.model}`);
         try {
-          const response = await this.openaiService.callWithCache(
+          const response = await this.aiService.callWithCache(
             fullPrompt, 
             promptType.model,
             this.settings.maxTokens,
@@ -509,9 +508,9 @@ FORMAT YOUR RESPONSE WITH THESE HEADERS:
         "Explanation: [your brief explanation]"
       `;
       
-      const simpleResult = await this.openaiService.callWithCache(
+      const simpleResult = await this.aiService.callWithCache(
         simplePrompt, 
-        "gpt-4o-mini",
+        this.settings.aiProvider === 'anthropic' ? 'claude-3-haiku-20240307' : 'gpt-4o-mini',
         CONTENT.MAX_TOKENS.CLAIM_EXTRACTION,
         true
       );

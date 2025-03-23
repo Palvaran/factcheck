@@ -58,6 +58,20 @@
         <div class="note" id="openai-note">Required for the AI-powered fact-checking. Get your API key from <a href="https://platform.openai.com/account/api-keys" target="_blank">OpenAI's website</a>.</div>
         <div id="openai-error" class="error"></div>
       </div>
+      <div>
+        <label for="anthropicApiKey">Anthropic API Key:</label>
+        <div style="position: relative; margin-top: 5px;">
+          <input type="password" id="anthropicApiKey" placeholder="sk-ant-..." style="width: 100%; padding: 8px; box-sizing: border-box; padding-right: 110px;" aria-label="Anthropic API Key (masked for security)">
+          <button type="button" class="toggle-visibility" data-for="anthropicApiKey" style="position: absolute; right: 55px; top: 5px; background: #1976D2; color: white; border: none; border-radius: 3px; padding: 4px 8px; font-size: 12px; cursor: pointer; font-weight: bold;">
+            SHOW
+          </button>
+          <button type="button" id="testAnthropic" style="position: absolute; right: 5px; top: 5px; background: #4CAF50; color: white; border: none; border-radius: 3px; padding: 4px 8px; font-size: 12px; cursor: pointer; font-weight: bold;">
+            TEST
+          </button>
+        </div>
+        <div class="note" id="anthropic-note">Optional: For using Claude models instead of OpenAI. Get your API key from <a href="https://console.anthropic.com/keys" target="_blank">Anthropic's Console</a>.</div>
+        <div id="anthropic-error" class="error"></div>
+      </div>
     </div>
     
     <div class="card">
@@ -86,6 +100,20 @@
       <h2>AI Model Settings</h2>
       
       <div class="option-row">
+        <span class="option-label">Select AI Provider:
+          <span class="tooltip-container">
+            <span class="tooltip-icon">?</span>
+            <span class="tooltip-text">Choose which AI provider to use for fact-checking. Each provider offers different models with varying capabilities.</span>
+          </span>
+        </span>
+        <select id="aiProvider" style="margin-left:10px; width:300px; padding:5px; border-radius:3px;" aria-label="Select AI Provider">
+          <option value="openai" selected>OpenAI (GPT Models)</option>
+          <option value="anthropic">Anthropic (Claude Models)</option>
+        </select>        
+      </div>
+      <div class="note" id="provider-note">Select the AI provider to use for fact checking. You'll need the corresponding API key.</div>      
+      
+      <div class="option-row">
         <span class="option-label">Select AI Model:
           <span class="tooltip-container">
             <span class="tooltip-icon">?</span>
@@ -93,23 +121,40 @@
           </span>
         </span>
         <select id="aiModel" style="margin-left:10px; width:300px; padding:5px; border-radius:3px;" aria-label="Select AI Model">
-          <option value="gpt-3.5-turbo">Legacy (GPT-3.5 Turbo)</option>
-          <option value="gpt-4o-mini" selected>Standard (GPT-4o Mini) - Higher Accuracy</option>
-          <option value="hybrid">Hybrid - Use 3.5 for search, 4o for analysis</option>
+          <!-- OpenAI models -->
+          <option value="gpt-4o-mini" data-provider="openai" selected>Standard (GPT-4o Mini)</option>
+          <option value="o3-mini" data-provider="openai">Premium (o3-mini) - Higher Accuracy</option>
+          <option value="hybrid" data-provider="openai">Hybrid - Advanced Analysis</option>
+          
+          <!-- Anthropic models -->
+          <option value="claude-3-5-haiku-20240307" data-provider="anthropic">Economy (Claude 3.5 Haiku)</option>
+          <option value="claude-3-5-sonnet-20240229" data-provider="anthropic">Standard (Claude 3.5 Sonnet)</option>
+          <option value="claude-3-7-sonnet-20250219" data-provider="anthropic">Premium (Claude 3.7 Sonnet) - Highest Accuracy</option>
         </select>        
       </div>
       <div class="note" id="model-note">Balance speed, cost, and accuracy based on your needs. Premium is recommended for most users.</div>
       
       <div class="cost-info">
         <strong>Estimated cost per 1000 fact checks (approx.):</strong><br>
-        • Legacy (GPT-3.5 Turbo):<br>
-        &nbsp;&nbsp;Input: $3.00 per 1M tokens<br>
-        &nbsp;&nbsp;Output: $6.00 per 1M tokens<br><br>
+        <strong>OpenAI:</strong><br>
         • Standard (GPT-4o Mini):<br>
         &nbsp;&nbsp;Input: $0.15 per 1M tokens<br>
         &nbsp;&nbsp;Output: $0.60 per 1M tokens<br><br>
+        • Premium (o3-mini):<br>
+        &nbsp;&nbsp;Input: $1.10 per 1M tokens<br>
+        &nbsp;&nbsp;Output: $4.40 per 1M tokens<br><br>
+        <strong>Anthropic:</strong><br>
+        • Economy (Claude 3.5 Haiku):<br>
+        &nbsp;&nbsp;Input: $0.80 per 1M tokens<br>
+        &nbsp;&nbsp;Output: $4.00 per 1M tokens<br><br>
+        • Standard (Claude 3.5 Sonnet):<br>
+        &nbsp;&nbsp;Input: $3.00 per 1M tokens<br>
+        &nbsp;&nbsp;Output: $15.00 per 1M tokens<br><br>
+        • Premium (Claude 3.7 Sonnet):<br>
+        &nbsp;&nbsp;Input: $3.00 per 1M tokens<br>
+        &nbsp;&nbsp;Output: $15.00 per 1M tokens<br><br>
         • Brave API: $3.00 per 1,000 requests
-      </div>      
+      </div>
       
       <div class="settings-group" style="margin-top:20px;">
         <div class="option-row">
