@@ -2,7 +2,7 @@
 import { STYLES } from '../../utils/constants.js';
 
 export class RatingVisualizer {
-  create(numericRating, confidenceLevel, isDarkMode) {
+  create(numericRating, confidenceLevel, isDarkMode, modelName = null) {
     const theme = isDarkMode ? STYLES.COLORS.DARK : STYLES.COLORS.LIGHT;
     const gaugeSize = STYLES.SIZES.GAUGE.SIZE;
     const strokeWidth = STYLES.SIZES.GAUGE.STROKE_WIDTH;
@@ -22,12 +22,16 @@ export class RatingVisualizer {
       numericRating >= 60 ? "D" : "F");
     
     // Set the ARIA label for the entire gauge
-    container.setAttribute('aria-label', `Fact check rating: ${numericRating} out of 100, grade ${letterGrade}, ${confidenceLevel} confidence level`);
+    let ariaLabel = `Fact check rating: ${numericRating} out of 100, grade ${letterGrade}, ${confidenceLevel} confidence level`;
+    if (modelName) {
+      ariaLabel += `, using model ${modelName}`;
+    }
+    container.setAttribute('aria-label', ariaLabel);
     
     // Create screen reader text that describes the rating
     const srText = document.createElement('span');
     srText.className = 'sr-only';
-    srText.textContent = `Fact check rating: ${numericRating} out of 100, grade ${letterGrade}, ${confidenceLevel} confidence level`;
+    srText.textContent = ariaLabel;
     srText.style.position = 'absolute';
     srText.style.width = '1px';
     srText.style.height = '1px';
@@ -138,19 +142,20 @@ export class RatingVisualizer {
     container.appendChild(gaugeContainer);
     
     // Add confidence indicator
-    const confidenceIndicator = this._createConfidenceIndicator(confidenceLevel, isDarkMode);
+    const confidenceIndicator = this._createConfidenceIndicator(confidenceLevel, isDarkMode, modelName);
     container.appendChild(confidenceIndicator);
     
     return container;
   }
   
-  _createConfidenceIndicator(confidenceLevel, isDarkMode) {
+  _createConfidenceIndicator(confidenceLevel, isDarkMode, modelName = null) {
     const confidenceContainer = document.createElement("div");
     confidenceContainer.style.width = "fit-content";
     confidenceContainer.style.margin = "10px auto 0";
     confidenceContainer.style.padding = "3px 8px";
     confidenceContainer.style.borderRadius = "12px";
     confidenceContainer.style.fontSize = "12px";
+    confidenceContainer.style.textAlign = "center";
     
     // Ensure sufficient color contrast for accessibility
     let bgColor, textColor;
@@ -189,6 +194,29 @@ export class RatingVisualizer {
     
     // Insert icon before text
     confidenceContainer.insertBefore(iconSpan, confidenceContainer.firstChild);
+    
+    // Add model name if provided
+    if (modelName) {
+      // Create a container for both confidence and model
+      const infoContainer = document.createElement("div");
+      infoContainer.style.display = "flex";
+      infoContainer.style.flexDirection = "column";
+      infoContainer.style.alignItems = "center";
+      infoContainer.style.gap = "5px";
+      
+      // Move confidence element to container
+      infoContainer.appendChild(confidenceContainer);
+      
+      // Create model element
+      const modelContainer = document.createElement("div");
+      modelContainer.style.fontSize = "11px";
+      modelContainer.style.color = isDarkMode ? "#bbb" : "#666";
+      modelContainer.textContent = `Model: ${modelName}`;
+      
+      infoContainer.appendChild(modelContainer);
+      
+      return infoContainer;
+    }
     
     return confidenceContainer;
   }

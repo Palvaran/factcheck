@@ -118,10 +118,10 @@ export class OverlayManager {
     }
 
     // Extract the rating information
-    const { numericRating, confidenceLevel, formattedResult } = this._extractRatingInfo(result);
+    const { numericRating, confidenceLevel, formattedResult, modelName } = this._extractRatingInfo(result);
 
     // Create rating visualization
-    const ratingVisual = this.ratingVisualizer.create(numericRating, confidenceLevel, isDarkMode);
+    const ratingVisual = this.ratingVisualizer.create(numericRating, confidenceLevel, isDarkMode, modelName);
     overlay.appendChild(ratingVisual);
     
     // Create tabbed interface for explanation and references
@@ -176,22 +176,24 @@ export class OverlayManager {
     const verdictSection = result.match(/Verdict:[\s\S]*?Score:?\s*(\d+(\.\d+)?)/i);
     const verdictRating = verdictSection ? parseFloat(verdictSection[1]) : null;
     
+    // Look for model information - make it more specific to avoid capturing HTML
+    const modelMatch = result.match(/Model:\s*([^\n<]+)/i);
+    const modelName = modelMatch ? modelMatch[1].trim() : null;
+    
     // If we found a verdict rating, use it as our primary source
     if (verdictRating !== null) {
       // Get confidence level from the full result
       const confidenceMatch = result.match(/Confidence Level:\s*(High|Moderate|Low)/i);
       const confidenceLevel = confidenceMatch ? confidenceMatch[1] : "Moderate";
       
-      // Remove rating from result that will be displayed since it's already in the gauge
-      let formattedResult = result;
-      
       // Format the result by removing rating information that will be displayed visually
-      formattedResult = result
+      let formattedResult = result
         .replace(/Rating:\s*\d+(\.\d+)?/i, "")
         .replace(/Confidence Level:.+?(?=\n|$)/i, "")
+        .replace(/Model:\s*[^\n<]+(?=\n|$)/i, "") // More precise model removal
         .trim();
       
-      return { numericRating: verdictRating, confidenceLevel, formattedResult };
+      return { numericRating: verdictRating, confidenceLevel, formattedResult, modelName };
     }
     
     // Fallback: Extract the general rating if no verdict-specific rating is found
@@ -208,14 +210,15 @@ export class OverlayManager {
     if (confidenceMatch) {
       confidenceLevel = confidenceMatch[1];
     }
-
+  
     // Format the result by removing rating information that will be displayed visually
     let formattedResult = result
       .replace(/Rating:\s*\d+(\.\d+)?/i, "")
       .replace(/Confidence Level:.+?(?=\n|$)/i, "")
+      .replace(/Model:\s*[^\n<]+(?=\n|$)/i, "") // More precise model removal
       .trim();
     
-    return { numericRating, confidenceLevel, formattedResult };
+    return { numericRating, confidenceLevel, formattedResult, modelName };
   }
   
   _toggleOverlaySize() {

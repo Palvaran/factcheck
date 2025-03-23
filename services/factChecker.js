@@ -351,8 +351,11 @@ FORMAT YOUR RESPONSE WITH THESE HEADERS:
         this.settings.enableCaching
       );
       
-      debugLog("AI response received, length:", result.length);
-      return result;
+      // Add model information to the result
+      const resultWithModel = result + `\n\nModel: ${model}`;
+      
+      debugLog("AI response received, length:", resultWithModel.length);
+      return resultWithModel;
     } catch (error) {
       console.error("Single model fact check error:", error);
       throw new Error(`Error during fact check: ${error.message}`);
@@ -487,7 +490,10 @@ FORMAT YOUR RESPONSE WITH THESE HEADERS:
         // Only one rating or none
         combinedResult += "\n\nConfidence Level: Low (limited analysis methods available)";
       }
-
+      
+      // Add model information
+      combinedResult += `\n\nModel: ${primaryModel}`;
+      
       debugLog("Combined result created, length:", combinedResult.length);
       return combinedResult;
     } catch (error) {
