@@ -181,12 +181,21 @@ export class SettingsManager {
   saveSettings() {
     // Get current settings
     const settings = this.getCurrentSettings();
+
+    // Always save aiProvider to both storages to ensure consistency
+    const aiProvider = settings.aiProvider;
     
     // Sanitize API keys
     settings.openaiApiKey = this.apiKeyManager.sanitizeApiKey(settings.openaiApiKey);
     settings.braveApiKey = this.apiKeyManager.sanitizeApiKey(settings.braveApiKey);
     
+    // Save to sync storage first
     chrome.storage.sync.set(settings, () => {
+      // Then explicitly save critical settings to local storage too
+      chrome.storage.local.set({ aiProvider: aiProvider }, () => {
+        console.log("aiProvider explicitly saved to local storage:", aiProvider);
+      });
+
       // Reset modified fields after saving
       this.modifiedFields.clear();
       
@@ -334,6 +343,15 @@ export class SettingsManager {
   setupChangeListeners() {
     // Will be called after DOM content is loaded
     document.addEventListener('DOMContentLoaded', () => {
+      // Add special handling for provider changes
+      const providerSelect = document.getElementById('aiProvider');
+      if (providerSelect) {
+        providerSelect.addEventListener('change', async () => {
+          // Immediately save provider setting when changed
+          await StorageUtils.set({ aiProvider: providerSelect.value });
+          console.log("AI Provider changed to:", providerSelect.value);
+        });
+      }
       // Select elements
       document.querySelectorAll('select').forEach(select => {
         select.addEventListener('change', () => {

@@ -16,26 +16,34 @@ export const StorageUtils = {
       try {
         DebugUtils.log("Storage", "StorageUtils.get called with keys:", keys);
         
-        // First try local storage
-        chrome.storage.local.get(keys, (localResult) => {
+        // FIRST try sync storage for critical settings
+        chrome.storage.sync.get(keys, (syncResult) => {
           if (chrome.runtime.lastError) {
-            DebugUtils.error("Storage", "Error in StorageUtils.get local:", chrome.runtime.lastError);
-            // Try sync storage if local fails
-            this.getFromSync(keys, resolve, reject);
+            DebugUtils.error("Storage", "Error in StorageUtils.get sync:", chrome.runtime.lastError);
+            // Fall back to local storage
+            this.getFromLocal(keys, resolve, reject);
             return;
           }
           
-          // Check if we got any results
-          const hasValues = Object.keys(localResult).length > 0 && 
-                           Object.values(localResult).some(v => v !== undefined && v !== null);
-          
-          if (hasValues) {
-            DebugUtils.log("Storage", "StorageUtils.get result from local:", localResult);
-            resolve(localResult);
-          } else {
-            // Try sync storage if local has no values
-            this.getFromSync(keys, resolve, reject);
-          }
+          // THEN try local storage and merge results, prioritizing sync for provider settings
+          chrome.storage.local.get(keys, (localResult) => {
+            if (chrome.runtime.lastError) {
+              DebugUtils.error("Storage", "Error in StorageUtils.get local:", chrome.runtime.lastError);
+              resolve(syncResult); // Just use sync results
+              return;
+            }
+            
+            // Merge results - LOCAL OVERRIDES SYNC EXCEPT FOR aiProvider
+            const mergedResult = { ...localResult };
+            
+            // For aiProvider specifically, prefer sync storage if available
+            if (keys.includes('aiProvider') && syncResult.aiProvider) {
+              mergedResult.aiProvider = syncResult.aiProvider;
+            }
+            
+            DebugUtils.log("Storage", "StorageUtils.get merged result:", mergedResult);
+            resolve(mergedResult);
+          });
         });
       } catch (error) {
         DebugUtils.error("Storage", "Exception in StorageUtils.get:", error);
@@ -70,10 +78,11 @@ export const StorageUtils = {
       try {
         DebugUtils.log("Storage", "StorageUtils.set called with data:", data);
         
-        // For API keys, set in both storages to be safe
-        const isAPIKeyData = data.openaiApiKey || data.braveApiKey;
+        // ALWAYS set in both storages for critical keys
+        const criticalKeys = ['openaiApiKey', 'braveApiKey', 'anthropicApiKey', 'aiProvider'];
+        const hasCriticalKeys = Object.keys(data).some(key => criticalKeys.includes(key));
         
-        // Always set in local
+        // Always set in local storage first
         chrome.storage.local.set(data, () => {
           if (chrome.runtime.lastError) {
             DebugUtils.error("Storage", "Error in StorageUtils.set local:", chrome.runtime.lastError);
@@ -81,23 +90,19 @@ export const StorageUtils = {
             return;
           }
           
-          DebugUtils.log("Storage", "StorageUtils.set completed successfully in local");
+          // Log success
+          DebugUtils.log("Storage", "Successfully saved to local storage");
           
-          // Also set in sync for API keys and some settings
-          if (isAPIKeyData) {
-            chrome.storage.sync.set(data, () => {
-              if (chrome.runtime.lastError) {
-                DebugUtils.warn("Storage", "Warning: Failed to also set in sync storage:", chrome.runtime.lastError);
-                // Still resolve since we succeeded in local
-                resolve();
-              } else {
-                DebugUtils.log("Storage", "API keys also saved to sync storage");
-                resolve();
-              }
-            });
-          } else {
+          // Always also save to sync storage for consistency
+          chrome.storage.sync.set(data, () => {
+            if (chrome.runtime.lastError) {
+              DebugUtils.warn("Storage", "Warning: Failed to save to sync storage:", chrome.runtime.lastError);
+              // Still resolve since we succeeded in local
+            } else {
+              DebugUtils.log("Storage", "Also saved to sync storage");
+            }
             resolve();
-          }
+          });
         });
       } catch (error) {
         DebugUtils.error("Storage", "Exception in StorageUtils.set:", error);

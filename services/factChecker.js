@@ -3,7 +3,7 @@ import { BraveSearchService } from '../api/brave.js';
 import { CONTENT, DOMAINS } from '../utils/constants.js';
 
 // Global debug flag - set to true for debugging
-const DEBUG = true;
+const DEBUG = false;
 
 // Debug logging helper
 function debugLog(...args) {
@@ -183,12 +183,19 @@ export class FactCheckerService {
         referencesHTML = `<br><br><strong>References:</strong><br>Error fetching references: ${searchResult.error.message}`;
       }
       
-      // Determine which model to use based on settings
-      const analysisModel = this.settings.aiModel === 'hybrid' ? 
-        (this.settings.aiProvider === 'anthropic' ? 'claude-3-opus-20240229' : 'gpt-4o-mini') : 
-        this.settings.aiModel;
+      // Determine which model to use based on settings and provider
+      let analysisModel = this.settings.aiModel;
+  
+      // If hybrid model is selected, use provider-specific implementation
+      if (this.settings.aiModel === 'hybrid') {
+        analysisModel = this.settings.aiProvider === 'anthropic' 
+          ? 'claude-3-7-sonnet-latest' 
+          : 'gpt-4o-mini';
+      }
       
-      debugLog(`Using ${analysisModel} for analysis`);
+      // Store the selected model in the class instance for reuse
+      this.selectedModel = analysisModel;
+      debugLog(`Using ${this.selectedModel} for analysis with provider ${this.settings.aiProvider}`);
       
       // Signal the analysis step
       await this._updateProgress('analysis');
@@ -202,7 +209,7 @@ export class FactCheckerService {
           text, 
           searchContext, 
           today, 
-          analysisModel
+          this.selectedModel
         );
       } else {
         // Use single model approach
@@ -211,7 +218,7 @@ export class FactCheckerService {
           text,
           searchContext,
           today,
-          analysisModel
+          this.selectedModel
         );
       }
       
@@ -219,7 +226,7 @@ export class FactCheckerService {
       await this._updateProgress('verification');
       
       debugLog("Fact check completed successfully");
-
+  
       // Extract rating from the factCheckResult
       let rating = null;
       const ratingMatch = factCheckResult.match(/Rating:\s*(\d+)/i);
@@ -514,9 +521,13 @@ FORMAT YOUR RESPONSE WITH THESE HEADERS:
         "Explanation: [your brief explanation]"
       `;
       
+      // Use the already selected model or fallback to a safe default
+      const fallbackModel = this.selectedModel || 
+        (this.settings.aiProvider === 'anthropic' ? 'claude-3-haiku-latest' : 'gpt-4o-mini');
+      
       const simpleResult = await this.aiService.callWithCache(
         simplePrompt, 
-        this.settings.aiProvider === 'anthropic' ? 'claude-3-haiku-20240307' : 'gpt-4o-mini',
+        fallbackModel,
         CONTENT.MAX_TOKENS.CLAIM_EXTRACTION,
         true
       );

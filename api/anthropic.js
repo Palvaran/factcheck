@@ -6,6 +6,12 @@ export class AnthropicService {
   constructor(apiKey) {
     console.log(`AnthropicService initialized with API key: ${apiKey ? 'PRESENT' : 'MISSING'}`);
     
+    // Validate the key
+    if (!apiKey || typeof apiKey !== 'string' || apiKey.trim() === '') {
+      console.error("ERROR: Invalid or missing Anthropic API key");
+      throw new Error("Invalid or missing Anthropic API key");
+    }
+
     this.apiKey = apiKey;
     this.cache = {};
     this.cacheHits = 0;
@@ -91,7 +97,8 @@ export class AnthropicService {
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': this.apiKey,
-        'anthropic-version': '2023-06-01'
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify(requestBody)
     });
@@ -115,14 +122,23 @@ export class AnthropicService {
 
   // Map model names if needed (for compatibility with existing code)
   _getActualModel(model) {
-    // Map OpenAI model names to Claude equivalents if needed
+    // If it's already a valid Claude model, return it as is
+    if (model.includes('claude-') && 
+        !model.includes('claude-3-5-haiku-20240307')) { // Skip the invalid model
+      return model;
+    }
+    
+    // Map models to correct Claude models
     const modelMap = {
-      'gpt-4o-mini': 'claude-3-5-haiku-20240307',  // Economical option
-      'o3-mini': 'claude-3-5-sonnet-20240229',     // Premium option
-      'hybrid': 'claude-3-7-sonnet-20250219'       // Highest accuracy model
+      // Use the exact model names from the official list can use -latest
+      'gpt-4o-mini': 'claude-3-haiku-20240307',      // Haiku without the "-5"
+      'o3-mini': 'claude-3-sonnet-20240229',         // Correct Sonnet model
+      'hybrid': 'claude-3-opus-20240229',            // Opus model
+      'claude-3-5-haiku-20240307': 'claude-3-haiku-20240307' // Special case fix
     };
     
-    return modelMap[model] || model;
+    // Try to find the model in our map, or fall back to a known valid model
+    return modelMap[model] || 'claude-3-haiku-20240307';
   }
 
   async callWithCache(prompt, model = "claude-3-5-sonnet-20240229", maxTokens = CONTENT.MAX_TOKENS.DEFAULT, enableCaching = true) {

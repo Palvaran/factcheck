@@ -16,6 +16,28 @@ const DEBUG = false;
 // Initialize the debug utility with our setting
 DebugUtils.setDebugEnabled(DEBUG);
 
+// Synchronize Anthropic API key between storage types
+chrome.storage.sync.get(['anthropicApiKey'], (syncData) => {
+  if (syncData.anthropicApiKey) {
+    console.log("Found Anthropic API key in sync storage, copying to local storage");
+    chrome.storage.local.set({
+      anthropicApiKey: syncData.anthropicApiKey
+    }, () => {
+      console.log("Successfully copied Anthropic API key to local storage");
+    });
+  }
+});
+
+// Synchronize model selection with provider
+chrome.storage.sync.get(['aiModel', 'aiProvider'], (syncData) => {
+  if (syncData.aiProvider === 'anthropic' && syncData.aiModel) {
+    console.log("Syncing Claude model to local storage");
+    chrome.storage.local.set({
+      aiModel: syncData.aiModel
+    });
+  }
+});
+
 // Initialize Supabase client
 let supabaseClient = null;
 
@@ -215,33 +237,53 @@ async function isContentScriptResponding(tabId) {
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   DebugUtils.log("Background", "Context menu clicked:", info.menuItemId);
   try {
-    // Get all API keys and provider setting
-    const { openaiApiKey, braveApiKey, anthropicApiKey, aiProvider } = 
-      await StorageUtils.get(['openaiApiKey', 'braveApiKey', 'anthropicApiKey', 'aiProvider']);
+    // FIXED APPROACH: Get all API keys and settings in one call
+    const settings = await StorageUtils.get([
+      'openaiApiKey', 
+      'braveApiKey', 
+      'anthropicApiKey', 
+      'aiProvider',
+      'aiModel'
+    ]);
     
-    DebugUtils.log("Background", "API keys present:", 
-                  !!openaiApiKey, !!braveApiKey, !!anthropicApiKey);
-    DebugUtils.log("Background", "AI provider:", aiProvider);
+    // Log all retrieved values for debugging
+    DebugUtils.log("Background", "Retrieved settings from storage:", {
+      hasOpenAI: !!settings.openaiApiKey,
+      hasBrave: !!settings.braveApiKey,
+      hasAnthropic: !!settings.anthropicApiKey,
+      provider: settings.aiProvider,
+      model: settings.aiModel
+    });
     
-    // Determine which API key to check based on provider
-    let requiredKey = openaiApiKey;
-    let keyName = 'OpenAI API key';
+    // Determine which key to use based on provider setting
+    const aiProvider = settings.aiProvider || 'openai';
+    
+    let requiredKey, keyName;
     
     if (aiProvider === 'anthropic') {
-      requiredKey = anthropicApiKey;
+      requiredKey = settings.anthropicApiKey;
       keyName = 'Anthropic API key';
+      DebugUtils.log("Background", "Using Anthropic provider with key:", 
+         requiredKey ? `Present (${requiredKey.length} chars)` : "Missing");
+    } else {
+      requiredKey = settings.openaiApiKey;
+      keyName = 'OpenAI API key';
+      DebugUtils.log("Background", "Using OpenAI provider with key:", 
+         requiredKey ? `Present (${requiredKey.length} chars)` : "Missing");
     }
     
+    // Check if we have the required key
     if (!requiredKey) {
       DebugUtils.error("Background", `Missing ${keyName}`);
-      await executeScript(tab.id, () => alert(`Please set your ${keyName} in the extension options.`));
+      await executeScript(tab.id, (message) => alert(message), [`Please set your ${keyName} in the extension options.`]);
       return;
     }
 
+    // Process based on menu item
     if (info.menuItemId === 'factCheckPage') {
-      await handlePageCheck(tab, openaiApiKey, braveApiKey, anthropicApiKey, aiProvider);
+      await handlePageCheck(tab, settings.openaiApiKey, settings.braveApiKey, settings.anthropicApiKey, aiProvider);
     } else {
-      await handleSelectionCheck(info.selectionText, tab, openaiApiKey, braveApiKey, anthropicApiKey, aiProvider);
+      await handleSelectionCheck(info.selectionText, tab, settings.openaiApiKey, settings.braveApiKey, settings.anthropicApiKey, aiProvider);
     }
   } catch (error) {
     DebugUtils.error("Background", "Context menu handler error:", error);
@@ -249,11 +291,15 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   }
 });
 
-// Handle checking an entire page
+// Update handlePageCheck to explicitly use all the parameters it receives
 async function handlePageCheck(tab, openaiApiKey, braveApiKey, anthropicApiKey, aiProvider) {
   DebugUtils.log("Background", `Starting page check for tab ${tab.id}: ${tab.url}`);
+  DebugUtils.log("Background", "Using provider:", aiProvider);
+  DebugUtils.log("Background", "API keys present:", 
+                !!openaiApiKey, !!braveApiKey, !!anthropicApiKey);
+  
   try {
-    // Ensure content script is loaded (now includes delay)
+    // Ensure content script is loaded
     await ensureContentScriptLoaded(tab.id);
     
     DebugUtils.log("Background", "Requesting article text from content script");
@@ -275,6 +321,10 @@ async function handlePageCheck(tab, openaiApiKey, braveApiKey, anthropicApiKey, 
 // Handle checking selected text
 async function handleSelectionCheck(text, tab, openaiApiKey, braveApiKey, anthropicApiKey, aiProvider) {
   DebugUtils.log("Background", `Starting selection check with ${text.length} characters of text`);
+  DebugUtils.log("Background", "Using provider:", aiProvider);
+  DebugUtils.log("Background", "API keys present:", 
+                !!openaiApiKey, !!braveApiKey, !!anthropicApiKey);
+                
   await processFactCheck(text, openaiApiKey, braveApiKey, anthropicApiKey, aiProvider, tab);
 }
 
@@ -282,8 +332,24 @@ async function handleSelectionCheck(text, tab, openaiApiKey, braveApiKey, anthro
 chrome.action.onClicked.addListener(async (tab) => {
   DebugUtils.log("Background", "Extension icon clicked");
   try {
-    const { openaiApiKey, braveApiKey, anthropicApiKey, aiProvider } = 
-      await StorageUtils.get(['openaiApiKey', 'braveApiKey', 'anthropicApiKey', 'aiProvider']);
+    // Get all API keys and settings in one call
+    const settings = await StorageUtils.get([
+      'openaiApiKey', 
+      'braveApiKey', 
+      'anthropicApiKey', 
+      'aiProvider',
+      'aiModel'
+    ]);
+    
+    // Initialize API key variables with values from settings
+    const openaiApiKey = settings.openaiApiKey;
+    const anthropicApiKey = settings.anthropicApiKey;
+    const braveApiKey = settings.braveApiKey;
+    const aiProvider = settings.aiProvider || 'openai';
+    
+    DebugUtils.log("Background", "API keys present:", 
+                  !!openaiApiKey, !!braveApiKey, !!anthropicApiKey);
+    DebugUtils.log("Background", "AI provider:", aiProvider);
     
     // Determine which API key to check based on provider
     let requiredKey = openaiApiKey;
@@ -294,17 +360,13 @@ chrome.action.onClicked.addListener(async (tab) => {
       keyName = 'Anthropic API key';
     }
     
-    DebugUtils.log("Background", "API keys present:", 
-                  !!openaiApiKey, !!braveApiKey, !!anthropicApiKey);
-    DebugUtils.log("Background", "AI provider:", aiProvider);
-    
     if (!requiredKey) {
       DebugUtils.error("Background", `Missing ${keyName}`);
-      await executeScript(tab.id, () => alert(`Please set your ${keyName} in the extension options.`));
+      await executeScript(tab.id, (msg) => alert(msg), [`Please set your ${keyName} in the extension options.`]);
       return;
     }
 
-    // Ensure content script is loaded first (now includes delay)
+    // Ensure content script is loaded first
     await ensureContentScriptLoaded(tab.id);
 
     // Try to get selected text
@@ -315,7 +377,7 @@ chrome.action.onClicked.addListener(async (tab) => {
 
     DebugUtils.log("Background", "Selected text:", selectedText ? "found" : "none");
     if (selectedText && selectedText.trim().length > 0) {
-      await processFactCheck(selectedText, openaiApiKey, braveApiKey, anthropicApiKey, aiProvider, tab);
+      await handleSelectionCheck(selectedText, tab, openaiApiKey, braveApiKey, anthropicApiKey, aiProvider);
     } else {
       await handlePageCheck(tab, openaiApiKey, braveApiKey, anthropicApiKey, aiProvider);
     }
@@ -328,8 +390,19 @@ chrome.action.onClicked.addListener(async (tab) => {
 async function processFactCheck(text, openaiApiKey, braveApiKey, anthropicApiKey, aiProvider, tab) {
   DebugUtils.log("Background", "Starting fact check process with text length:", text.length);
   DebugUtils.log("Background", "Using AI provider:", aiProvider);
+  DebugUtils.log("Background", "API keys present:", 
+                 !!openaiApiKey, !!braveApiKey, !!anthropicApiKey);
   
-  // Ensure content script is loaded before showing overlay (now includes delay)
+  // DIRECT FIX: Retrieve the API keys again here in case they weren't passed correctly
+  if (!anthropicApiKey && aiProvider === 'anthropic') {
+    DebugUtils.log("Background", "Anthropic key missing, retrieving directly from storage");
+    const directSettings = await StorageUtils.get(['anthropicApiKey']);
+    anthropicApiKey = directSettings.anthropicApiKey;
+    DebugUtils.log("Background", "Retrieved Anthropic key from storage:", 
+                  anthropicApiKey ? `Present (${anthropicApiKey.length} chars)` : "Still missing");
+  }
+  
+  // Ensure content script is loaded before showing overlay
   const contentInjected = await ensureContentScriptLoaded(tab.id);
   DebugUtils.log("Background", "Content script loaded status:", contentInjected);
   
@@ -348,15 +421,30 @@ async function processFactCheck(text, openaiApiKey, braveApiKey, anthropicApiKey
       'rateLimit'
     ]);
     
-    DebugUtils.log("Background", "Settings retrieved");
+    // ENSURE aiProvider from arguments overrides the one from storage
+    settings.aiProvider = aiProvider || settings.aiProvider;
+    
+    DebugUtils.log("Background", "Settings retrieved, using provider:", settings.aiProvider);
     
     // Create the appropriate AI service based on the provider setting
     let aiService;
-    if (settings.aiProvider === 'anthropic' && anthropicApiKey) {
-      DebugUtils.log("Background", "Creating Anthropic service");
+    if (settings.aiProvider === 'anthropic') {
+      if (!anthropicApiKey) {
+        DebugUtils.error("Background", "Missing Anthropic API key");
+        throw new Error("Missing Anthropic API key. Please set it in the extension options.");
+      }
+      
+      DebugUtils.log("Background", "Creating Anthropic service with key:", 
+                    anthropicApiKey ? `Present (${anthropicApiKey.length} chars)` : "Missing");
       aiService = new AnthropicService(anthropicApiKey);
     } else {
-      DebugUtils.log("Background", "Creating OpenAI service");
+      if (!openaiApiKey) {
+        DebugUtils.error("Background", "Missing OpenAI API key");
+        throw new Error("Missing OpenAI API key. Please set it in the extension options.");
+      }
+      
+      DebugUtils.log("Background", "Creating OpenAI service with key:", 
+                    openaiApiKey ? `Present (${openaiApiKey.length} chars)` : "Missing");
       aiService = new OpenAIService(openaiApiKey);
     }
     
