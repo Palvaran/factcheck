@@ -196,7 +196,25 @@ export class FactCheckerService {
       // Store the selected model in the class instance for reuse
       this.selectedModel = analysisModel;
       debugLog(`Using ${this.selectedModel} for analysis with provider ${this.settings.aiProvider}`);
-      
+
+      // Add validation to ensure model matches provider
+      if (this.settings.aiProvider === 'openai') {
+        // Ensure we're using an OpenAI model
+        const openaiModels = ['gpt-4o-mini', 'o3-mini', 'hybrid'];
+        if (!openaiModels.includes(this.selectedModel) && !this.selectedModel.includes('gpt-')) {
+          debugLog(`Invalid OpenAI model: ${this.selectedModel}, falling back to default`);
+          this.selectedModel = 'gpt-4o-mini'; // Default OpenAI model
+        }
+      } else if (this.settings.aiProvider === 'anthropic') {
+        // Ensure we're using an Anthropic model
+        if (!this.selectedModel.includes('claude-')) {
+          debugLog(`Invalid Anthropic model: ${this.selectedModel}, falling back to default`);
+          this.selectedModel = 'claude-3-5-sonnet-20240229'; // Default Anthropic model
+        }
+      }
+
+      debugLog(`Final validated model for ${this.settings.aiProvider}: ${this.selectedModel}`);
+
       // Signal the analysis step
       await this._updateProgress('analysis');
       

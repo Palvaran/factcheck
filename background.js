@@ -28,6 +28,18 @@ chrome.storage.sync.get(['anthropicApiKey'], (syncData) => {
   }
 });
 
+// Synchronize OpenAI API key between storage types
+chrome.storage.sync.get(['openaiApiKey'], (syncData) => {
+  if (syncData.openaiApiKey) {
+    console.log("Found OpenAI API key in sync storage, copying to local storage");
+    chrome.storage.local.set({
+      openaiApiKey: syncData.openaiApiKey
+    }, () => {
+      console.log("Successfully copied OpenAI API key to local storage");
+    });
+  }
+});
+
 // Synchronize model selection with provider
 chrome.storage.sync.get(['aiModel', 'aiProvider'], (syncData) => {
   if (syncData.aiProvider === 'anthropic' && syncData.aiModel) {
@@ -400,6 +412,15 @@ async function processFactCheck(text, openaiApiKey, braveApiKey, anthropicApiKey
     anthropicApiKey = directSettings.anthropicApiKey;
     DebugUtils.log("Background", "Retrieved Anthropic key from storage:", 
                   anthropicApiKey ? `Present (${anthropicApiKey.length} chars)` : "Still missing");
+  }
+
+  // Add this new block for OpenAI
+  if (!openaiApiKey && aiProvider !== 'anthropic') {
+    DebugUtils.log("Background", "OpenAI key missing, retrieving directly from storage");
+    const directSettings = await StorageUtils.get(['openaiApiKey']);
+    openaiApiKey = directSettings.openaiApiKey;
+    DebugUtils.log("Background", "Retrieved OpenAI key from storage:", 
+                  openaiApiKey ? `Present (${openaiApiKey.length} chars)` : "Still missing");
   }
   
   // Ensure content script is loaded before showing overlay
