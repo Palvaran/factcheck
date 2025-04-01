@@ -15,6 +15,39 @@ export const API = {
   }
 };
 
+// Model definitions for AI providers
+export const MODELS = {
+  OPENAI: {
+    DEFAULT: 'gpt-4o-mini',
+    FAST: 'gpt-4o-mini',
+    STANDARD: 'gpt-4o-mini',
+    ADVANCED: 'gpt-4o',
+    EXTRACTION: 'gpt-4o-mini'
+  },
+  ANTHROPIC: {
+    DEFAULT: 'claude-3-5-haiku-latest',
+    FAST: 'claude-3-5-haiku-latest',
+    STANDARD: 'claude-3-7-sonnet-latest',
+    ADVANCED: 'claude-3-opus-latest',
+    EXTRACTION: 'claude-3-5-haiku-latest'
+  },
+  // Mapping from generic model names to provider-specific models
+  GENERIC: {
+    'hybrid': {
+      'openai': 'gpt-4o',
+      'anthropic': 'claude-3-opus-latest'
+    },
+    'o3-mini': {
+      'openai': 'gpt-4o-mini',
+      'anthropic': 'claude-3-7-sonnet-latest'
+    },
+    'gpt-4o-mini': {
+      'openai': 'gpt-4o-mini',
+      'anthropic': 'claude-3-5-haiku-latest'
+    }
+  }
+};
+
 // Request Handling - Add Anthropic backoff and rate limits
 export const REQUEST = {
   BACKOFF: {
@@ -108,6 +141,46 @@ export const REQUEST = {
     }
   };
   
+  // Feature Flags for enabling/disabling functionality
+  export const FEATURES = {
+    // AI Model Features
+    MULTI_MODEL_CHECK: true,       // Use multiple models for fact checking
+    MODEL_AUTO_SELECTION: true,    // Automatically select optimal model based on content
+    
+    // Search Features
+    BRAVE_SEARCH: true,            // Use Brave Search for context
+    SEARCH_QUERY_OPTIMIZATION: true, // Generate optimized search queries
+    
+    // Content Extraction Features
+    CONTENT_EXTRACTION: {
+      READABILITY: true,           // Use Readability for article extraction
+      PARAGRAPH_ANALYSIS: true,    // Use paragraph analysis as fallback
+      INTELLIGENT_SAMPLING: true,  // Use intelligent sampling for large documents
+      TEXT_COMPLEXITY_ANALYSIS: true // Analyze text complexity for model selection
+    },
+    
+    // Performance Features
+    CACHING: {
+      ENABLED: true,               // Enable caching of API responses
+      PERSIST_TO_STORAGE: true,    // Persist cache to chrome.storage
+      TTL_HOURS: 24                // Cache time-to-live in hours
+    },
+    
+    // Error Handling
+    ERROR_HANDLING: {
+      RETRY_MECHANISM: true,       // Enable retry with exponential backoff
+      FALLBACK_MODELS: true,       // Fall back to simpler models on error
+      ERROR_TELEMETRY: true        // Send anonymous error telemetry
+    },
+    
+    // UI Features
+    UI: {
+      PROGRESS_INDICATORS: true,   // Show detailed progress indicators
+      DARK_MODE_DETECTION: true,   // Auto-detect dark mode
+      ANIMATED_TRANSITIONS: true    // Use animations for smoother UX
+    }
+  };
+
   // Cache Configuration
   export const CACHE = {
     MAX_SIZE: 100
@@ -138,7 +211,30 @@ export const REQUEST = {
       'economist.com',
       'science.org',
       'nature.com',
-      'scientificamerican.com'
+      'scientificamerican.com',
+      // Additional credible news sources
+      'theguardian.com',
+      'bloomberg.com',
+      'ft.com', // Financial Times
+      'theatlantic.com',
+      'newyorker.com',
+      'time.com',
+      'pbs.org',
+      'cnn.com',
+      'cbsnews.com',
+      'abcnews.go.com',
+      'nbcnews.com',
+      'thehill.com',
+      'politico.com',
+      // Academic and research sources
+      'pnas.org', // Proceedings of the National Academy of Sciences
+      'sciencedirect.com',
+      'nih.gov', // National Institutes of Health
+      'cdc.gov', // Centers for Disease Control
+      'who.int', // World Health Organization
+      'un.org', // United Nations
+      'worldbank.org',
+      'imf.org' // International Monetary Fund
     ],
     FACT_CHECK: [
       'factcheck.org',
@@ -147,6 +243,20 @@ export const REQUEST = {
       'fullfact.org',
       'reuters.com/fact-check',
       'apnews.com/hub/ap-fact-check',
-      'factcheck.afp.com'
+      // Additional fact-checking sites
+      'factchecker.washingtonpost.com',
+      'checkyourfact.com',
+      'truthorfiction.com',
+      'factcheck.afp.com',
+      'leadstories.com',
+      'mediabiasfactcheck.com',
+      'poynter.org/ifcn', // International Fact-Checking Network
+      'bbc.com/news/reality_check',
+      'channel4.com/news/factcheck',
+      'vox.com/pages/facts-matter',
+      'factcrescendo.com',
+      'hoax-slayer.net',
+      'verafiles.org',
+      'africacheck.org'
     ]
   };

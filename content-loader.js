@@ -30,18 +30,18 @@ try {
     purifyScript.src = chrome.runtime.getURL('libs/purify.min.js');
     document.head.appendChild(purifyScript);
     
-    // Load content.js
+    // Load modular content script instead of monolithic content.js
     const script = document.createElement('script');
-    script.src = chrome.runtime.getURL('content.js');
+    script.src = chrome.runtime.getURL('content/index.js');
     script.type = 'module';
     document.head.appendChild(script);
   });
 } catch (error) {
   console.error("Error requesting Readability injection:", error);
   
-  // Fall back to loading content.js directly
+  // Fall back to loading content script directly
   const script = document.createElement('script');
-  script.src = chrome.runtime.getURL('content.js');
+  script.src = chrome.runtime.getURL('content/index.js');
   script.type = 'module';
   document.head.appendChild(script);
 }

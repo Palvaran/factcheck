@@ -5,6 +5,9 @@ import { DOMAINS, REQUEST, API, CONTENT } from '../utils/constants.js';
 export class BraveSearchService {
   constructor(apiKey) {
     console.log(`BraveSearchService initialized with API key: ${apiKey ? 'PRESENT' : 'MISSING'}`);
+    if (!apiKey || apiKey.trim() === '') {
+      console.error('BraveSearchService initialized with empty or invalid API key');
+    }
     
     this.apiKey = apiKey;
     this.CREDIBLE_DOMAINS = DOMAINS.CREDIBLE;
@@ -27,8 +30,15 @@ export class BraveSearchService {
     try {
       console.log(`Executing Brave search with query: "${query}"`);
       
+      // Validate API key before making the request
+      if (!this.apiKey || this.apiKey.trim() === '') {
+        throw new Error('Missing or invalid Brave API key');
+      }
+      
       // Execute the search
       const searchUrl = `${API.BRAVE.BASE_URL}?q=${encodeURIComponent(query)}&count=${API.BRAVE.RESULTS_COUNT}`;
+      
+      console.log(`Making request to: ${API.BRAVE.BASE_URL} with query length: ${query.length}`);
       
       const response = await fetch(searchUrl, {
         headers: {
@@ -108,6 +118,18 @@ export class BraveSearchService {
     } catch (error) {
       console.error(`Error in _executeSearch:`, error);
       throw error; // Re-throw to be handled by the calling code
+    }
+  }
+  
+  // Test the API key to ensure it's valid
+  async testApiKey() {
+    try {
+      // Use a simple test query
+      const testResults = await this._executeSearch('test');
+      return { valid: true, results: testResults.length };
+    } catch (error) {
+      console.error('API key test failed:', error);
+      return { valid: false, error: error.message };
     }
   }
   

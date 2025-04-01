@@ -1,6 +1,11 @@
-// services/factChecker.js - Updated to support both OpenAI and Anthropic
+// services/factChecker.js - Updated to support both OpenAI and Anthropic with enhanced error handling and model selection
 import { BraveSearchService } from '../api/brave.js';
-import { CONTENT, DOMAINS } from '../utils/constants.js';
+import { CONTENT, DOMAINS, MODELS, FEATURES } from '../utils/constants.js';
+import { RetryUtils } from '../utils/RetryUtils.js';
+import { ErrorHandlingService } from './ErrorHandlingService.js';
+import { ModelSelectionService } from './ModelSelectionService.js';
+import { CacheService } from './CacheService.js';
+import { TelemetryService } from './TelemetryService.js'; // Import TelemetryService directly
 
 // Global debug flag - set to true for debugging
 const DEBUG = false;
@@ -28,17 +33,27 @@ export class FactCheckerService {
     this.braveService = braveApiKey ? new BraveSearchService(braveApiKey) : null;
     debugLog("BraveSearchService available:", !!this.braveService);
     
-    // Immediately test the Brave API if available
-    if (this.braveService) {
+    // Initialize new services
+    this.cacheService = new CacheService();
+    
+    // Only initialize telemetry if the feature is enabled
+    this.telemetryService = FEATURES.ERROR_HANDLING.ERROR_TELEMETRY ? new TelemetryService() : null;
+    
+    // Test the Brave API if available
+    if (this.braveService && FEATURES.BRAVE_SEARCH) {
       debugLog("Testing Brave API during initialization");
       
-      // Run a quick test query
-      this.braveService.enqueueSearch("test query")
-        .then(results => {
-          debugLog(`✓ Brave API test successful, got ${results.length} results`);
+      // Test the API key
+      this.braveService.testApiKey()
+        .then(result => {
+          if (result.valid) {
+            debugLog(`✓ Brave API key test successful, API key is valid`);
+          } else {
+            console.error(`✗ Brave API key test failed: ${result.error}`);
+          }
         })
         .catch(error => {
-          console.error("✗ Brave API test failed during initialization:", error);
+          console.error("✗ Brave API key test failed during initialization:", error);
         });
     }
     
@@ -49,7 +64,8 @@ export class FactCheckerService {
       useMultiModel: settings.useMultiModel !== false,
       maxTokens: settings.maxTokens || CONTENT.MAX_TOKENS.DEFAULT,
       enableCaching: settings.enableCaching !== false,
-      rateLimit: settings.rateLimit || 5
+      rateLimit: settings.rateLimit || 5,
+      costSensitive: settings.costSensitive !== false
     };
     
     // Update rate limit setting
@@ -59,6 +75,13 @@ export class FactCheckerService {
     
     // Keep track of ongoing check operations
     this.pendingChecks = new Map();
+    
+    // Initialize cache if caching is enabled
+    if (FEATURES.CACHING.ENABLED && this.settings.enableCaching) {
+      this.cacheService.initialize().catch(error => {
+        console.error("Error initializing cache:", error);
+      });
+    }
   }
 
   async check(text) {
@@ -70,8 +93,23 @@ export class FactCheckerService {
       return this.pendingChecks.get(textHash);
     }
     
-    // Create a new promise for this check
-    const checkPromise = this._performCheck(text);
+    // Create a new promise for this check with retry logic
+    const checkPromise = RetryUtils.retryWithBackoff(
+      () => this._performCheck(text),
+      {
+        maxRetries: 2,
+        initialDelay: 2000,
+        shouldRetry: (error) => {
+          // Only retry on temporary errors, not on auth or content policy issues
+          return RetryUtils.isTemporaryError(error) && !RetryUtils.isAuthError(error);
+        },
+        onRetry: (error, retryInfo) => {
+          debugLog(`Retrying fact check (${retryInfo.retryCount}/${retryInfo.maxRetries}) after error: ${error.message}`);
+          this._updateProgress('retry');
+        }
+      }
+    );
+    
     this.pendingChecks.set(textHash, checkPromise);
     
     // Remove from pending checks when done
@@ -102,52 +140,88 @@ export class FactCheckerService {
     debugLog("Using AI model:", this.settings.aiModel);
     debugLog("Multi-model enabled:", this.settings.useMultiModel);
     
-    try {
-      // Signal the content extraction step
-      await this._updateProgress('extraction');
-      
-      // Get current date for context
-      const today = new Date().toLocaleDateString('en-US', { 
-        month: 'long', 
-        day: 'numeric', 
-        year: 'numeric' 
+    if (this.telemetryService) {
+      this.telemetryService.startOperation('factCheck', {
+        textLength: text.length,
+        provider: this.settings.aiProvider,
+        model: this.settings.aiModel,
+        multiModel: this.settings.useMultiModel
       });
-      debugLog("Today's date for context:", today);
+    }
+    
+    try {
+      // Signal the start of the process
+      await this._updateProgress('start');
       
-      // Extract query for search context
-      debugLog("Extracting search query...");
+      // Get today's date for context
+      const today = new Date().toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
       
-      // Signal the query generation step
-      await this._updateProgress('query');
+      // Analyze text complexity for model selection if enabled
+      let textComplexity = 'medium';
+      if (FEATURES.CONTENT_EXTRACTION.TEXT_COMPLEXITY_ANALYSIS) {
+        textComplexity = ModelSelectionService.estimateComplexity(text);
+        debugLog(`Text complexity estimated as: ${textComplexity}`);
+      }
       
-      const queryText = await this.aiService.extractSearchQuery(text, this.settings.aiModel);
+      // Select optimal model based on complexity if auto-selection is enabled
+      let selectedModel = this.settings.aiModel;
+      if (FEATURES.MODEL_AUTO_SELECTION) {
+        const modelOptions = {
+          provider: this.settings.aiProvider,
+          textLength: text.length,
+          complexity: textComplexity,
+          urgency: 'medium',
+          costSensitive: this.settings.costSensitive,
+          task: 'fact_check'
+        };
+        
+        selectedModel = ModelSelectionService.selectOptimalModel(modelOptions);
+        debugLog(`Model auto-selected: ${selectedModel} based on complexity: ${textComplexity}`);
+      }
+      
+      // Use the optimized query extraction with the selected model
+      const queryText = await this.aiService.extractSearchQuery(text, 
+        FEATURES.SEARCH_QUERY_OPTIMIZATION ? selectedModel : this.settings.aiModel);
       debugLog("Query extracted, length:", queryText.length);  
       
       // Verify if Brave service is available
-      if (!this.braveService) {
-        debugLog("WARNING: Brave service is null. API key might be missing or invalid.");
+      let braveServiceAvailable = false;
+      if (!this.braveService && FEATURES.BRAVE_SEARCH) {
+        console.warn("WARNING: Brave service is null. API key might be missing or invalid.");
         
         // Attempt emergency reinitialization
         try {
           // Retrieve the API key from storage again
-          chrome.storage.sync.get(['braveApiKey'], (result) => {
-            if (result.braveApiKey) {
-              debugLog("Found Brave API key in storage, attempting to reinitialize service");
-              this.braveService = new BraveSearchService(result.braveApiKey);
-            } else {
-              debugLog("No Brave API key found in storage");
-            }
+          const storageResult = await new Promise((resolve) => {
+            chrome.storage.sync.get(['braveApiKey'], (result) => {
+              resolve(result);
+            });
           });
+          
+          if (storageResult.braveApiKey) {
+            console.log("Found Brave API key in storage, attempting to reinitialize service");
+            this.braveService = new BraveSearchService(storageResult.braveApiKey);
+            braveServiceAvailable = true;
+          } else {
+            console.warn("No Brave API key found in storage");
+          }
         } catch (storageError) {
           console.error("Error accessing storage:", storageError);
         }
+      } else if (this.braveService) {
+        braveServiceAvailable = true;
       }
       
       // Collect all potential operations and run in parallel where possible
       const operations = [];
       
-      // Only add the search operation if we have a Brave service
-      if (this.braveService) {
+      // Only add the search operation if we have a Brave service and the feature is enabled
+      if (braveServiceAvailable && FEATURES.BRAVE_SEARCH) {
         debugLog("Adding Brave search operation");
         
         // Signal the search step
@@ -155,14 +229,19 @@ export class FactCheckerService {
         
         operations.push(
           this.braveService.search(queryText)
-            .then(result => ({ type: 'search', data: result }))
+            .then(result => {
+              debugLog("Search operation completed successfully");
+              return { type: 'search', data: result };
+            })
             .catch(error => {
               console.error("Error in Brave search operation:", error);
               return { type: 'search', error };
             })
         );
       } else {
-        debugLog("Skipping Brave search operation - service not available");
+        console.warn("Skipping Brave search operation - service not available or feature disabled");
+        console.warn("Brave service available:", braveServiceAvailable);
+        console.warn("FEATURES.BRAVE_SEARCH enabled:", FEATURES.BRAVE_SEARCH);
       }
       
       // Execute all operations in parallel
@@ -172,7 +251,7 @@ export class FactCheckerService {
       // Extract results from the operations
       let searchResult = results.find(r => r.type === 'search');
       let searchContext = '';
-      let referencesHTML = '<br><br><strong>References:</strong><br>No references available.';
+      let referencesHTML = '<br><br><strong>References:</strong><br>No references available (emergency mode).';
       
       if (searchResult && !searchResult.error) {
         searchContext = searchResult.data.searchContext;
@@ -181,16 +260,19 @@ export class FactCheckerService {
       } else if (searchResult?.error) {
         console.error("Error with search:", searchResult.error);
         referencesHTML = `<br><br><strong>References:</strong><br>Error fetching references: ${searchResult.error.message}`;
+      } else if (!braveServiceAvailable) {
+        // Create a fallback message for when Brave service is not available
+        referencesHTML = `<br><br><strong>References:</strong><br>Unable to fetch references - Brave Search API is not available. Please check your API key in settings.`;
       }
       
       // Determine which model to use based on settings and provider
-      let analysisModel = this.settings.aiModel;
+      let analysisModel = selectedModel || this.settings.aiModel;
   
       // If hybrid model is selected, use provider-specific implementation
-      if (this.settings.aiModel === 'hybrid') {
+      if (analysisModel === 'hybrid') {
         analysisModel = this.settings.aiProvider === 'anthropic' 
-          ? 'claude-3-7-sonnet-latest' 
-          : 'gpt-4o-mini';
+          ? MODELS.ANTHROPIC.ADVANCED 
+          : MODELS.OPENAI.ADVANCED;
       }
       
       // Store the selected model in the class instance for reuse
@@ -209,7 +291,7 @@ export class FactCheckerService {
         // Ensure we're using an Anthropic model
         if (!this.selectedModel.includes('claude-')) {
           debugLog(`Invalid Anthropic model: ${this.selectedModel}, falling back to default`);
-          this.selectedModel = 'claude-3-5-sonnet-20240229'; // Default Anthropic model
+          this.selectedModel = MODELS.ANTHROPIC.DEFAULT; // Use constant for default model
         }
       }
 
@@ -221,7 +303,7 @@ export class FactCheckerService {
       let factCheckResult;
       
       // Use multi-model verification if enabled
-      if (this.settings.useMultiModel) {
+      if (this.settings.useMultiModel && FEATURES.MULTI_MODEL_CHECK) {
         debugLog("Using multi-model approach");
         factCheckResult = await this.performMultiModelFactCheck(
           text, 
@@ -232,7 +314,7 @@ export class FactCheckerService {
       } else {
         // Use single model approach
         debugLog("Using single model approach");
-        factCheckResult = await this.singleModelFactCheck(
+        factCheckResult = await this.factCheckWithSearch(
           text,
           searchContext,
           today,
@@ -258,6 +340,15 @@ export class FactCheckerService {
       // Combine results and references
       const combinedResult = factCheckResult + referencesHTML;
       
+      // End telemetry tracking with success
+      if (this.telemetryService) {
+        this.telemetryService.endOperation('factCheck', { 
+          success: true,
+          rating,
+          hasReferences: searchContext.length > 0
+        });
+      }
+      
       // Return all three values in a consistent object
       return { 
         result: combinedResult, 
@@ -267,16 +358,55 @@ export class FactCheckerService {
     } catch (error) {
       console.error("Critical error in factCheck:", error);
       
-      // Attempt emergency fallback
-      try {
-        debugLog("Attempting emergency fallback...");
-        const emergencyResult = await this.emergencyFallback(text);
-        return emergencyResult; // This should already be returning { result, queryText, rating }
-      } catch (fallbackError) {
-        console.error("Even fallback failed:", fallbackError);
-        // If even the fallback fails, return the original error
+      // Log error with the error handling service
+      ErrorHandlingService.logError(error, {
+        operation: 'factCheck',
+        model: this.selectedModel || this.settings.aiModel,
+        provider: this.settings.aiProvider
+      });
+      
+      // End telemetry tracking with failure
+      if (this.telemetryService) {
+        this.telemetryService.endOperation('factCheck', { 
+          success: false,
+          errorType: ErrorHandlingService.categorizeError(error),
+          errorMessage: error.message
+        });
+      }
+      
+      // Get recovery strategy
+      const errorType = ErrorHandlingService.categorizeError(error);
+      const strategy = ErrorHandlingService.getRecoveryStrategy(errorType, {
+        provider: this.settings.aiProvider,
+        model: this.selectedModel || this.settings.aiModel
+      });
+      
+      // Create user-friendly error message
+      const userMessage = ErrorHandlingService.createUserFriendlyMessage(error, {
+        operation: 'factCheck',
+        model: this.selectedModel || this.settings.aiModel,
+        provider: this.settings.aiProvider
+      });
+      
+      // Attempt emergency fallback if we should
+      if (strategy.fallbackModel) {
+        try {
+          debugLog(`Attempting emergency fallback with model: ${strategy.fallbackModel}...`);
+          const emergencyResult = await this.emergencyFallback(text, strategy.fallbackModel);
+          return emergencyResult; // This should already be returning { result, queryText, rating }
+        } catch (fallbackError) {
+          console.error("Even fallback failed:", fallbackError);
+          // If even the fallback fails, return the original error
+          return { 
+            result: `Error: ${userMessage}`, 
+            queryText: text.substring(0, 100),
+            rating: null 
+          };
+        }
+      } else {
+        // No fallback strategy, return error directly
         return { 
-          result: `Error: ${error.message} - Please try again later or check your API keys.`, 
+          result: `Error: ${userMessage}`, 
           queryText: text.substring(0, 100),
           rating: null 
         };
@@ -307,6 +437,63 @@ export class FactCheckerService {
     } catch (error) {
       console.error("Error updating progress:", error);
       // Non-critical error, continue with fact check
+    }
+  }
+
+  async factCheckWithSearch(text, searchContext, today, model) {
+    debugLog(`Starting fact check with search context using model: ${model}`);
+    try {
+      // Track this operation if telemetry is enabled
+      if (this.telemetryService) {
+        this.telemetryService.startOperation('factCheckWithSearch', {
+          model,
+          hasSearchContext: !!searchContext && searchContext.length > 0
+        });
+      }
+      
+      // Build the prompt with search context if available
+      const prompt = this.buildPrompt(text, searchContext, today, !!searchContext);
+      debugLog("Prompt built, length:", prompt.length);
+      
+      // Call AI API with the selected model using retry mechanism
+      debugLog(`Calling AI API with model: ${model}`);
+      
+      const result = await RetryUtils.retryWithBackoff(
+        async () => this.aiService.callWithCache(
+          prompt, 
+          model,
+          this.settings.maxTokens,
+          this.settings.enableCaching
+        ),
+        {
+          maxRetries: 2,
+          initialDelay: 2000,
+          shouldRetry: (error) => RetryUtils.isTemporaryError(error)
+        }
+      );
+      
+      // Add model information to the result
+      const resultWithModel = result + `\n\nModel: ${model}`;
+      
+      // End telemetry tracking with success
+      if (this.telemetryService) {
+        this.telemetryService.endOperation('factCheckWithSearch', { success: true });
+      }
+      
+      debugLog("AI response received, length:", resultWithModel.length);
+      return resultWithModel;
+    } catch (error) {
+      // End telemetry tracking with failure
+      if (this.telemetryService) {
+        this.telemetryService.endOperation('factCheckWithSearch', { 
+          success: false,
+          errorType: ErrorHandlingService.categorizeError(error),
+          errorMessage: error.message
+        });
+      }
+      
+      console.error("Fact check with search error:", error);
+      throw new Error(`Error during fact check: ${error.message}`);
     }
   }
 
@@ -360,40 +547,25 @@ FORMAT YOUR RESPONSE WITH THESE HEADERS:
     return factCheckTemplate;
   }
 
-  async singleModelFactCheck(text, searchContext, today, model) {
-    debugLog(`Starting single model fact check with model: ${model}`);
-    try {
-      // Build the prompt with search context if available
-      const prompt = this.buildPrompt(text, searchContext, today, !!searchContext);
-      debugLog("Prompt built, length:", prompt.length);
-      
-      // Call AI API with the selected model
-      debugLog(`Calling AI API with model: ${model}`);
-      const result = await this.aiService.callWithCache(
-        prompt, 
-        model,
-        this.settings.maxTokens,
-        this.settings.enableCaching
-      );
-      
-      // Add model information to the result
-      const resultWithModel = result + `\n\nModel: ${model}`;
-      
-      debugLog("AI response received, length:", resultWithModel.length);
-      return resultWithModel;
-    } catch (error) {
-      console.error("Single model fact check error:", error);
-      throw new Error(`Error during fact check: ${error.message}`);
-    }
-  }
-
   async performMultiModelFactCheck(text, searchContext, today, primaryModel) {
     debugLog("Starting multi-model approach with primary model:", primaryModel);
     
-    // Choose appropriate secondary model based on provider
-    const secondaryModel = this.settings.aiProvider === 'anthropic' 
-      ? 'claude-3-haiku-20240307'  // Use Haiku for Anthropic
-      : 'gpt-4o-mini';            // Use GPT-4o-mini for OpenAI
+    // Track this operation if telemetry is enabled
+    if (this.telemetryService) {
+      this.telemetryService.startOperation('multiModelFactCheck', {
+        primaryModel,
+        hasSearchContext: !!searchContext && searchContext.length > 0
+      });
+    }
+    
+    // Choose appropriate secondary models based on provider using ModelSelectionService
+    const secondaryModels = ModelSelectionService.selectSecondaryModels(
+      primaryModel, 
+      this.settings.aiProvider, 
+      this.settings.costSensitive
+    );
+    
+    debugLog(`Selected secondary models: ${secondaryModels.join(', ')}`);
     
     // Define different prompt types
     const promptTypes = [
@@ -409,7 +581,7 @@ FORMAT YOUR RESPONSE WITH THESE HEADERS:
         prompt: `Analyze the internal logical consistency of the following statement: "${text}". 
         Identify if there are any contradictions or logical fallacies. 
         Provide a numeric consistency rating from 0-100 and brief explanation.`,
-        model: secondaryModel
+        model: secondaryModels[0] || primaryModel
       }
     ];
 
@@ -434,11 +606,18 @@ FORMAT YOUR RESPONSE WITH THESE HEADERS:
         
         debugLog(`Sending ${promptType.name} prompt to ${promptType.model}`);
         try {
-          const response = await this.aiService.callWithCache(
-            fullPrompt, 
-            promptType.model,
-            this.settings.maxTokens,
-            this.settings.enableCaching
+          const response = await RetryUtils.retryWithBackoff(
+            async () => this.aiService.callWithCache(
+              fullPrompt, 
+              promptType.model,
+              this.settings.maxTokens,
+              this.settings.enableCaching
+            ),
+            {
+              maxRetries: 2,
+              initialDelay: 1000,
+              shouldRetry: (error) => RetryUtils.isTemporaryError(error)
+            }
           );
           
           debugLog(`${promptType.name} response received, length:`, response.length);
@@ -448,6 +627,14 @@ FORMAT YOUR RESPONSE WITH THESE HEADERS:
           };
         } catch (error) {
           console.error(`Error with ${promptType.name} prompt:`, error);
+          
+          // Log error with the error handling service
+          ErrorHandlingService.logError(error, {
+            operation: `multiModelFactCheck_${promptType.name}`,
+            model: promptType.model,
+            provider: this.settings.aiProvider
+          });
+          
           return {
             name: promptType.name,
             response: `Error: Could not complete ${promptType.name} analysis.`
@@ -517,19 +704,67 @@ FORMAT YOUR RESPONSE WITH THESE HEADERS:
       }
       
       // Add model information
-      combinedResult += `\n\nModel: ${primaryModel}`;
+      combinedResult += `\n\nPrimary Model: ${primaryModel}`;
+      if (secondaryModels.length > 0) {
+        combinedResult += `\nSecondary Model(s): ${secondaryModels.join(', ')}`;
+      }
+      
+      // End telemetry tracking with success
+      if (this.telemetryService) {
+        this.telemetryService.endOperation('multiModelFactCheck', { 
+          success: true,
+          validResponseCount: validResponses.length,
+          ratingCount: ratings.length,
+          aggregateRating
+        });
+      }
       
       debugLog("Combined result created, length:", combinedResult.length);
       return combinedResult;
     } catch (error) {
       console.error("Multi-model fact check error:", error);
+      
+      // Log error with the error handling service
+      ErrorHandlingService.logError(error, {
+        operation: 'multiModelFactCheck',
+        model: primaryModel,
+        provider: this.settings.aiProvider
+      });
+      
+      // End telemetry tracking with failure
+      if (this.telemetryService) {
+        this.telemetryService.endOperation('multiModelFactCheck', { 
+          success: false,
+          errorType: ErrorHandlingService.categorizeError(error),
+          errorMessage: error.message
+        });
+      }
+      
       return `Rating: 50\n\nExplanation: An error occurred during the fact-checking process. This default rating should not be considered accurate.\n\nConfidence Level: Low`;
     }
   }
 
-  async emergencyFallback(text) {
+  async emergencyFallback(text, fallbackModel) {
     debugLog("Using emergency fallback for fact check");
+    
+    // Track this operation if telemetry is enabled
+    if (this.telemetryService) {
+      this.telemetryService.startOperation('emergencyFallback', {
+        fallbackModel,
+        textLength: text.length
+      });
+    }
+    
     try {
+      // If no fallback model is specified, select a safe default
+      if (!fallbackModel) {
+        fallbackModel = this.settings.aiProvider === 'anthropic' 
+          ? MODELS.ANTHROPIC.FAST 
+          : MODELS.OPENAI.FAST;
+      }
+      
+      debugLog(`Using fallback model: ${fallbackModel}`);
+      
       const simplePrompt = `
         Please fact-check the following statement and rate its accuracy from 0-100:
         "${text.substring(0, 1000)}"
@@ -539,15 +774,19 @@ FORMAT YOUR RESPONSE WITH THESE HEADERS:
         "Explanation: [your brief explanation]"
       `;
       
-      // Use the already selected model or fallback to a safe default
-      const fallbackModel = this.selectedModel || 
-        (this.settings.aiProvider === 'anthropic' ? 'claude-3-haiku-latest' : 'gpt-4o-mini');
-      
-      const simpleResult = await this.aiService.callWithCache(
-        simplePrompt, 
-        fallbackModel,
-        CONTENT.MAX_TOKENS.CLAIM_EXTRACTION,
-        true
+      // Use retry mechanism for the emergency fallback
+      const simpleResult = await RetryUtils.retryWithBackoff(
+        async () => this.aiService.callWithCache(
+          simplePrompt, 
+          fallbackModel,
+          CONTENT.MAX_TOKENS.CLAIM_EXTRACTION,
+          true
+        ),
+        {
+          maxRetries: 1,
+          initialDelay: 1000,
+          shouldRetry: (error) => RetryUtils.isTemporaryError(error)
+        }
       );
       
       debugLog("Emergency fallback succeeded");
@@ -560,13 +799,38 @@ FORMAT YOUR RESPONSE WITH THESE HEADERS:
         debugLog(`Extracted emergency rating: ${rating}`);
       }
       
+      // End telemetry tracking with success
+      if (this.telemetryService) {
+        this.telemetryService.endOperation('emergencyFallback', { 
+          success: true,
+          rating
+        });
+      }
+      
       return { 
-        result: simpleResult + "<br><br><strong>References:</strong><br>No references available (emergency mode).", 
+        result: simpleResult + `<br><br><strong>References:</strong><br>No references available (emergency mode).<br><br><em>Note: This is a simplified fact-check using the ${fallbackModel} model.</em>`, 
         queryText: text.substring(0, 100),
         rating: rating
       };
     } catch (finalError) {
       console.error("Final fallback error:", finalError);
+      
+      // Log error with the error handling service
+      ErrorHandlingService.logError(finalError, {
+        operation: 'emergencyFallback',
+        model: fallbackModel,
+        provider: this.settings.aiProvider
+      });
+      
+      // End telemetry tracking with failure
+      if (this.telemetryService) {
+        this.telemetryService.endOperation('emergencyFallback', { 
+          success: false,
+          errorType: ErrorHandlingService.categorizeError(finalError),
+          errorMessage: finalError.message
+        });
+      }
+      
       throw new Error('Unable to complete fact-check. Please try again later.');
     }
   }

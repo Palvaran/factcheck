@@ -20,17 +20,10 @@ const contentScriptManager = new ContentScriptManager();
 const factCheckManager = new FactCheckManager(apiManager, analyticsManager, contentScriptManager);
 const contextMenuManager = new ContextMenuManager(factCheckManager);
 
-// Flag to track initialization status
-let isInitialized = false;
-
 // Setup on install
 chrome.runtime.onInstalled.addListener(async () => {
   DebugUtils.log("Background", "Extension installed, initializing services");
-  await initializeServices();
-});
-
-// Initialize all services
-async function initializeServices() {
+  
   try {
     // Initialize API manager first to load and synchronize keys
     await apiManager.initialize();
@@ -42,14 +35,11 @@ async function initializeServices() {
     // Initialize default settings
     await initializeDefaultSettings();
     
-    // Mark as initialized
-    isInitialized = true;
-    
     DebugUtils.log("Background", "All services initialized successfully");
   } catch (error) {
     DebugUtils.error("Background", "Error initializing services:", error);
   }
-}
+});
 
 // Initialize default settings
 async function initializeDefaultSettings() {
@@ -102,12 +92,6 @@ async function initializeDefaultSettings() {
 chrome.action.onClicked.addListener(async (tab) => {
   DebugUtils.log("Background", "Extension icon clicked");
   try {
-    // Ensure services are initialized before proceeding
-    if (!isInitialized) {
-      DebugUtils.log("Background", "Services not initialized yet, initializing now");
-      await initializeServices();
-    }
-    
     // Get all API keys and settings in one call
     const settings = await StorageManager.get([
       'openaiApiKey', 
@@ -162,29 +146,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   
   DebugUtils.log("Background", "Message received:", message.action || "no action specified");
   
-  // Ensure services are initialized for actions that require them
-  if (!isInitialized && message.action !== 'setDebugEnabled') {
-    DebugUtils.log("Background", "Services not initialized yet, initializing now");
-    // We need to handle this asynchronously
-    (async () => {
-      try {
-        await initializeServices();
-        // After initialization, process the message
-        processMessage(message, sender, sendResponse);
-      } catch (error) {
-        DebugUtils.error("Background", "Error initializing services:", error);
-        sendResponse({ success: false, error: "Service initialization failed" });
-      }
-    })();
-    return true; // Keep the message channel open
-  }
-  
-  // If already initialized, process the message directly
-  return processMessage(message, sender, sendResponse);
-});
-
-// Process messages after ensuring initialization
-function processMessage(message, sender, sendResponse) {
   // Handle different message types
   switch (message.action) {
     case 'setDebugEnabled':
@@ -272,4 +233,4 @@ function processMessage(message, sender, sendResponse) {
       sendResponse({ error: "Unhandled message type" });
       return true;
   }
-}
+});

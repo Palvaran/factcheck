@@ -1,6 +1,6 @@
 // api/openai.js - Updated to use BaseApiService
 import { BaseApiService } from './BaseApiService.js';
-import { REQUEST, API } from '../utils/constants.js';
+import { REQUEST, API, MODELS } from '../utils/constants.js';
 
 export class OpenAIService extends BaseApiService {
   constructor(apiKey) {
@@ -34,7 +34,7 @@ export class OpenAIService extends BaseApiService {
     console.log(`Making OpenAI API request with model: ${model}, max_tokens: ${maxTokensInt}`);
     
     const requestBody = {
-      model: model,
+      model: this._getActualModel(model),
       messages: [{ role: "user", content: prompt }],
       max_tokens: maxTokensInt,
       temperature: 0.3
@@ -63,13 +63,40 @@ export class OpenAIService extends BaseApiService {
   }
 
   /**
+   * Map model names if needed (for compatibility with existing code)
+   * @param {string} model - The input model name
+   * @returns {string} The actual model name to use with OpenAI API
+   */
+  _getActualModel(model) {
+    // If it's already a valid OpenAI model, return it as is
+    if (model.includes('gpt-')) {
+      return model;
+    }
+    
+    // Check if it's a generic model that needs mapping
+    if (MODELS.GENERIC[model] && MODELS.GENERIC[model].openai) {
+      return MODELS.GENERIC[model].openai;
+    }
+    
+    // Use appropriate model based on name
+    switch (model) {
+      case 'hybrid':
+        return MODELS.OPENAI.ADVANCED;
+      case 'o3-mini':
+        return MODELS.OPENAI.STANDARD;
+      default:
+        return MODELS.OPENAI.DEFAULT;
+    }
+  }
+
+  /**
    * Get the model to use for claim extraction
    * @param {string} model - The base model
    * @returns {string} The model to use for extraction
    * @override
    */
   getExtractionModel(model) {
-    // Always use gpt-4o-mini for extraction to save costs
-    return 'gpt-4o-mini';
+    // Always use a fast model for extraction
+    return MODELS.OPENAI.EXTRACTION;
   }
 }

@@ -1,6 +1,6 @@
 // api/anthropic.js - Updated to use BaseApiService
 import { BaseApiService } from './BaseApiService.js';
-import { REQUEST, API } from '../utils/constants.js';
+import { REQUEST, API, MODELS } from '../utils/constants.js';
 
 export class AnthropicService extends BaseApiService {
   constructor(apiKey) {
@@ -81,21 +81,26 @@ export class AnthropicService extends BaseApiService {
   _getActualModel(model) {
     // If it's already a valid Claude model, return it as is
     if (model.includes('claude-') && 
-        !model.includes('claude-3-5-haiku-20240307')) { // Skip the invalid model
+        !model.includes('claude-3-5-haiku-20240307')) { // Skip specific invalid models
       return model;
     }
     
-    // Map models to correct Claude models
-    const modelMap = {
-      // Use the exact model names from the official list can use -latest
-      'gpt-4o-mini': 'claude-3-haiku-20240307',      // Haiku without the "-5"
-      'o3-mini': 'claude-3-sonnet-20240229',         // Correct Sonnet model
-      'hybrid': 'claude-3-opus-20240229',            // Opus model
-      'claude-3-5-haiku-20240307': 'claude-3-haiku-20240307' // Special case fix
-    };
+    // Check if it's a generic model that needs mapping
+    if (MODELS.GENERIC[model] && MODELS.GENERIC[model].anthropic) {
+      return MODELS.GENERIC[model].anthropic;
+    }
     
-    // Try to find the model in our map, or fall back to a known valid model
-    return modelMap[model] || 'claude-3-haiku-20240307';
+    // Use appropriate model based on name
+    switch (model) {
+      case 'gpt-4o-mini':
+        return MODELS.ANTHROPIC.FAST;
+      case 'o3-mini':
+        return MODELS.ANTHROPIC.STANDARD;
+      case 'hybrid':
+        return MODELS.ANTHROPIC.ADVANCED;
+      default:
+        return MODELS.ANTHROPIC.DEFAULT;
+    }
   }
 
   /**
@@ -106,6 +111,6 @@ export class AnthropicService extends BaseApiService {
    */
   getExtractionModel(model) {
     // Always use a fast model for extraction
-    return 'claude-3-5-haiku-20240307';
+    return MODELS.ANTHROPIC.EXTRACTION;
   }
 }
