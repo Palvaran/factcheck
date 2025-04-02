@@ -14,7 +14,7 @@ export class SettingsManager {
     // Default settings with constants
     this.defaultSettings = {
       aiProvider: 'openai',
-      aiModel: 'gpt-4o-mini',
+      aiModel: 'openai-standard',
       useMultiModel: false,
       autoCheckHeadlines: false,
       enhancedUI: true,
@@ -117,14 +117,31 @@ export class SettingsManager {
       }
     }
     
+    // Set the AI provider first (this will affect which model options are visible)
+    this.setSelectValue('aiProvider', data.aiProvider, this.defaultSettings.aiProvider);
+    
+    // Ensure we're using the correct model format for the selected provider
+    let modelValue = data.aiModel || this.defaultSettings.aiModel;
+    const provider = data.aiProvider || this.defaultSettings.aiProvider;
+    
+    // Convert legacy model values to new format
+    if (modelValue === 'standard' || modelValue === 'premium') {
+      modelValue = `${provider}-${modelValue}`;
+    } 
+    // If the model value doesn't match the current provider, use the default for the current provider
+    else if (!modelValue.startsWith(`${provider}-`)) {
+      modelValue = `${provider}-standard`;
+    }
+    
+    // Now set the model value
+    this.setSelectValue('aiModel', modelValue, this.defaultSettings.aiModel);
+    
     // Preferences - Apply each setting if element exists
-    this.setSelectValue('aiModel', data.aiModel, this.defaultSettings.aiModel);
     this.setCheckboxValue('useMultiModel', data.useMultiModel, this.defaultSettings.useMultiModel);
     this.setCheckboxValue('autoCheckHeadlines', data.autoCheckHeadlines, this.defaultSettings.autoCheckHeadlines);
     this.setCheckboxValue('enhancedUI', data.enhancedUI, this.defaultSettings.enhancedUI);
     this.setSelectValue('resultPosition', data.resultPosition, this.defaultSettings.resultPosition);
     this.setSelectValue('colorTheme', data.colorTheme, this.defaultSettings.colorTheme);
-    this.setSelectValue('aiProvider', data.aiProvider, this.defaultSettings.aiProvider);
     
     // Analytics
     this.setCheckboxValue('shareAnalytics', data.shareAnalytics, this.defaultSettings.shareAnalytics);
@@ -138,6 +155,13 @@ export class SettingsManager {
     // Site management settings
     this.setTextValue('siteList', data.siteList, this.defaultSettings.siteList);
     this.setTextValue('ignoredSites', data.ignoredSites, this.defaultSettings.ignoredSites);
+    
+    // Trigger the provider change handler to ensure model options are correctly displayed
+    const providerSelect = document.getElementById('aiProvider');
+    if (providerSelect) {
+      const event = new Event('change');
+      providerSelect.dispatchEvent(event);
+    }
   }
 
   /**

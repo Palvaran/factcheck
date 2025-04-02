@@ -268,11 +268,27 @@ export class FactCheckerService {
       // Determine which model to use based on settings and provider
       let analysisModel = selectedModel || this.settings.aiModel;
   
-      // If hybrid model is selected, use provider-specific implementation
-      if (analysisModel === 'hybrid') {
+      // Parse provider-specific model values (e.g., 'openai-standard', 'anthropic-premium')
+      if (analysisModel.includes('-')) {
+        const [provider, tier] = analysisModel.split('-');
+        // If the provider in the model matches the current provider, use the tier
+        if (provider === this.settings.aiProvider) {
+          const modelType = tier.toUpperCase();
+          analysisModel = this.settings.aiProvider === 'anthropic' 
+            ? MODELS.ANTHROPIC[modelType] 
+            : MODELS.OPENAI[modelType];
+        } else {
+          // If providers don't match, use the standard model for the current provider
+          analysisModel = this.settings.aiProvider === 'anthropic' 
+            ? MODELS.ANTHROPIC.STANDARD 
+            : MODELS.OPENAI.STANDARD;
+        }
+      } else if (analysisModel === 'standard' || analysisModel === 'premium') {
+        // Handle legacy model values
+        const modelType = analysisModel.toUpperCase();
         analysisModel = this.settings.aiProvider === 'anthropic' 
-          ? MODELS.ANTHROPIC.ADVANCED 
-          : MODELS.OPENAI.ADVANCED;
+          ? MODELS.ANTHROPIC[modelType] 
+          : MODELS.OPENAI[modelType];
       }
       
       // Store the selected model in the class instance for reuse
@@ -282,16 +298,16 @@ export class FactCheckerService {
       // Add validation to ensure model matches provider
       if (this.settings.aiProvider === 'openai') {
         // Ensure we're using an OpenAI model
-        const openaiModels = ['gpt-4o-mini', 'o3-mini', 'hybrid'];
+        const openaiModels = ['standard', 'premium'];
         if (!openaiModels.includes(this.selectedModel) && !this.selectedModel.includes('gpt-')) {
           debugLog(`Invalid OpenAI model: ${this.selectedModel}, falling back to default`);
-          this.selectedModel = 'gpt-4o-mini'; // Default OpenAI model
+          this.selectedModel = MODELS.OPENAI.STANDARD; // Use constant for default model
         }
       } else if (this.settings.aiProvider === 'anthropic') {
         // Ensure we're using an Anthropic model
         if (!this.selectedModel.includes('claude-')) {
           debugLog(`Invalid Anthropic model: ${this.selectedModel}, falling back to default`);
-          this.selectedModel = MODELS.ANTHROPIC.DEFAULT; // Use constant for default model
+          this.selectedModel = MODELS.ANTHROPIC.STANDARD; // Use constant for default model
         }
       }
 

@@ -134,7 +134,6 @@ function setupProviderChangeHandler() {
   
   function updateModelOptions() {
     const selectedProvider = providerSelect.value;
-    let firstOptionFound = false;
     
     // Show/hide options based on provider
     Array.from(modelSelect.options).forEach(option => {
@@ -142,15 +141,25 @@ function setupProviderChangeHandler() {
       const shouldShow = optionProvider === selectedProvider;
       
       option.style.display = shouldShow ? '' : 'none';
-      
-      // Select the first available option if current selection is hidden
-      if (shouldShow && !firstOptionFound) {
-        firstOptionFound = true;
-        if (modelSelect.selectedOptions[0].style.display === 'none') {
-          modelSelect.value = option.value;
-        }
-      }
     });
+    
+    // Always select the standard option for the current provider
+    // Find the standard option for this provider
+    const standardOption = Array.from(modelSelect.options).find(option => 
+      option.getAttribute('data-provider') === selectedProvider && 
+      option.value === `${selectedProvider}-standard`);
+    
+    if (standardOption) {
+      modelSelect.value = standardOption.value;
+    } else {
+      // Fallback: select the first visible option if standard is not available
+      const firstVisibleOption = Array.from(modelSelect.options).find(option => 
+        option.getAttribute('data-provider') === selectedProvider);
+      
+      if (firstVisibleOption) {
+        modelSelect.value = firstVisibleOption.value;
+      }
+    }
   }
   
   // Handle provider change

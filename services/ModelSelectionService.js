@@ -40,9 +40,9 @@ export class ModelSelectionService {
       return models.FAST;
     }
     
-    // For complex, longer texts with low urgency, use the most powerful model
+    // For complex, longer texts with low urgency, use the premium model
     if (complexity === 'high' && textLength > 3000 && urgency === 'low' && !costSensitive) {
-      return models.ADVANCED;
+      return models.PREMIUM;
     }
     
     // For medium complexity or medium-length texts
@@ -50,8 +50,8 @@ export class ModelSelectionService {
       return models.STANDARD;
     }
     
-    // Default to the fastest model for cost-sensitive or simple tasks
-    return models.FAST;
+    // Default to the standard model
+    return models.STANDARD;
   }
   
   /**
@@ -108,32 +108,28 @@ export class ModelSelectionService {
   }
   
   /**
-   * Select secondary models for multi-model fact checking
+   * Select secondary models for multi-model verification
    * 
    * @param {string} primaryModel - The primary model being used
    * @param {string} provider - AI provider ('openai' or 'anthropic')
    * @param {boolean} costSensitive - Whether to prioritize cost savings
-   * @returns {string[]} Array of secondary model names
+   * @returns {Array<string>} List of secondary models to use
    */
   static selectSecondaryModels(primaryModel, provider, costSensitive = true) {
     const models = provider === 'anthropic' ? MODELS.ANTHROPIC : MODELS.OPENAI;
     
-    // If using the advanced model as primary, use standard as secondary
-    if (primaryModel === models.ADVANCED) {
+    // If using the premium model as primary, use standard as secondary
+    if (primaryModel === models.PREMIUM) {
       return [models.STANDARD];
     }
     
-    // If using standard model as primary, use fast as secondary
-    if (primaryModel === models.STANDARD) {
-      return [models.FAST];
+    // If using the standard model as primary, use premium as secondary if not cost sensitive
+    if (primaryModel === models.STANDARD && !costSensitive) {
+      return [models.PREMIUM];
     }
     
-    // If using fast model and not cost sensitive, add standard as secondary
-    if (primaryModel === models.FAST && !costSensitive) {
-      return [models.STANDARD];
-    }
-    
-    // Default: just use the fast model again with different prompting
-    return [models.FAST];
+    // Default case - use a different configuration of the same model tier
+    // For example, with different temperature or system prompt
+    return [primaryModel];
   }
 }

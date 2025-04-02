@@ -122,14 +122,12 @@
         </span>
         <select id="aiModel" style="margin-left:10px; width:300px; padding:5px; border-radius:3px;" aria-label="Select AI Model">
           <!-- OpenAI models -->
-          <option value="gpt-4o-mini" data-provider="openai" selected>Standard (GPT-4o Mini)</option>
-          <option value="o3-mini" data-provider="openai">Premium (o3-mini) - Higher Accuracy</option>
-          <option value="hybrid" data-provider="openai">Hybrid - Advanced Analysis</option>
+          <option value="openai-standard" data-provider="openai" selected>Standard (GPT-4o Mini)</option>
+          <option value="openai-premium" data-provider="openai">Premium (GPT-4o) - Higher Accuracy</option>
           
           <!-- Anthropic models -->
-          <option value="claude-3-5-haiku-20240307" data-provider="anthropic">Economy (Claude 3.5 Haiku)</option>
-          <option value="claude-3-5-sonnet-20240229" data-provider="anthropic">Standard (Claude 3.5 Sonnet)</option>
-          <option value="claude-3-7-sonnet-20250219" data-provider="anthropic">Premium (Claude 3.7 Sonnet) - Highest Accuracy</option>
+          <option value="anthropic-standard" data-provider="anthropic">Standard (Claude 3.5 Haiku)</option>
+          <option value="anthropic-premium" data-provider="anthropic">Premium (Claude 3.7 Sonnet) - Higher Accuracy</option>
         </select>        
       </div>
       <div class="note" id="model-note">Balance speed, cost, and accuracy based on your needs. Premium is recommended for most users.</div>
@@ -140,16 +138,13 @@
         • Standard (GPT-4o Mini):<br>
         &nbsp;&nbsp;Input: $0.15 per 1M tokens<br>
         &nbsp;&nbsp;Output: $0.60 per 1M tokens<br><br>
-        • Premium (o3-mini):<br>
+        • Premium (GPT-4o):<br>
         &nbsp;&nbsp;Input: $1.10 per 1M tokens<br>
         &nbsp;&nbsp;Output: $4.40 per 1M tokens<br><br>
         <strong>Anthropic:</strong><br>
-        • Economy (Claude 3.5 Haiku):<br>
+        • Standard (Claude 3.5 Haiku):<br>
         &nbsp;&nbsp;Input: $0.80 per 1M tokens<br>
         &nbsp;&nbsp;Output: $4.00 per 1M tokens<br><br>
-        • Standard (Claude 3.5 Sonnet):<br>
-        &nbsp;&nbsp;Input: $3.00 per 1M tokens<br>
-        &nbsp;&nbsp;Output: $15.00 per 1M tokens<br><br>
         • Premium (Claude 3.7 Sonnet):<br>
         &nbsp;&nbsp;Input: $3.00 per 1M tokens<br>
         &nbsp;&nbsp;Output: $15.00 per 1M tokens<br><br>

@@ -20,25 +20,25 @@ export const MODELS = {
   OPENAI: {
     DEFAULT: 'gpt-4o-mini',
     FAST: 'gpt-4o-mini',
-    STANDARD: 'gpt-4o-mini',
-    ADVANCED: 'gpt-4o',
+    STANDARD: 'gpt-4o-mini',  // Standard tier
+    PREMIUM: 'gpt-4o',        // Premium tier (renamed from ADVANCED)
     EXTRACTION: 'gpt-4o-mini'
   },
   ANTHROPIC: {
     DEFAULT: 'claude-3-5-haiku-latest',
     FAST: 'claude-3-5-haiku-latest',
-    STANDARD: 'claude-3-7-sonnet-latest',
-    ADVANCED: 'claude-3-opus-latest',
+    STANDARD: 'claude-3-5-haiku-latest',  // Standard tier (Haiku)
+    PREMIUM: 'claude-3-7-sonnet-latest',  // Premium tier (Sonnet)
     EXTRACTION: 'claude-3-5-haiku-latest'
   },
   // Mapping from generic model names to provider-specific models
   GENERIC: {
-    'hybrid': {
-      'openai': 'gpt-4o',
-      'anthropic': 'claude-3-opus-latest'
-    },
-    'o3-mini': {
+    'standard': {
       'openai': 'gpt-4o-mini',
+      'anthropic': 'claude-3-5-haiku-latest'
+    },
+    'premium': {
+      'openai': 'gpt-4o',
       'anthropic': 'claude-3-7-sonnet-latest'
     },
     'gpt-4o-mini': {
